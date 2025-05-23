@@ -34,22 +34,12 @@
 <script setup>
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
-import { watch, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import NavbarButton from './NavbarButton.vue'
 
-const authStore = useAuthStore()
 const router = useRouter()
-
-// computed 속성으로 isLoggedIn 상태를 가져옴
-const isLoggedIn = computed(() => {
-  console.log('Navbar - isLoggedIn computed 호출:', authStore.isLoggedIn)
-  return authStore.isLoggedIn
-})
-
-// isLoggedIn 상태 변화 감시
-watch(() => authStore.isLoggedIn, (newValue) => {
-  console.log('Navbar - 로그인 상태 변경:', newValue)
-}, { immediate: true })
+const authStore = useAuthStore()
+const { isLoggedIn } = storeToRefs(authStore)
 
 async function handleLogout() {
   console.log('로그아웃 버튼 클릭')
