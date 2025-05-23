@@ -8,15 +8,8 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
 
   // computed 속성으로 isLoggedIn 상태를 노출
-  const isLoggedIn = computed({
-    get: () => {
-      console.log('authStore - isLoggedIn getter 호출:', _isLoggedIn.value)
-      return _isLoggedIn.value
-    },
-    set: (value) => {
-      console.log('authStore - isLoggedIn setter 호출:', value)
-      _isLoggedIn.value = value
-    }
+  const isLoggedIn = computed(() => {
+    return _isLoggedIn.value
   })
 
   async function login(email, password) {
@@ -30,7 +23,8 @@ export const useAuthStore = defineStore('auth', () => {
       console.log('로그인 응답:', response)
       if (response.status === 200) {
         console.log('로그인 성공, 상태 변경')
-        isLoggedIn.value = true
+        _isLoggedIn.value = true
+        user.value = response.data.user
         return true
       }
       return false
@@ -48,7 +42,7 @@ export const useAuthStore = defineStore('auth', () => {
       console.log('로그아웃 응답:', response)
       if (response.status === 200) {
         console.log('로그아웃 성공, 상태 변경')
-        isLoggedIn.value = false
+        _isLoggedIn.value = false
         user.value = null
         return true
       }
@@ -61,8 +55,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     isLoggedIn,
+    _isLoggedIn,
     user,
     login,
     logout
+  }
+}, {
+  persist: {
+    paths: ['_isLoggedIn', 'user'],
+    storage: localStorage,
+    key: 'auth-store'
   }
 }) 
