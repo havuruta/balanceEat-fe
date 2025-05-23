@@ -9,7 +9,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   // computed 속성으로 isLoggedIn 상태를 노출
   const isLoggedIn = computed(() => {
-    console.log('authStore - isLoggedIn getter 호출:', _isLoggedIn.value)
     return _isLoggedIn.value
   })
 
