@@ -92,7 +92,7 @@ const showAnalyzeModal = ref(false)
 const analyzeSummary = ref({ protein: 0, fat: 0, carbohydrates: 0 })
 
 const MEAL_TYPE = {
-  MORNING: { label: '아침', start: '05:00', end: '10:00' },
+  BREAKFAST: { label: '아침', start: '05:00', end: '10:00' },
   LUNCH: { label: '점심', start: '11:00', end: '15:00' },
   DINNER: { label: '저녁', start: '17:00', end: '21:00' },
   SNACK: { label: '간식', start: '10:00', end: '17:00' },
@@ -563,7 +563,7 @@ function getMealTypeByTime(time) {
   const timeValue = hour + minute / 60
 
   // 시간대별 매핑
-  if (timeValue >= 5 && timeValue < 10) return 'MORNING'
+  if (timeValue >= 5 && timeValue < 10) return 'BREAKFAST'
   if (timeValue >= 11 && timeValue < 15) return 'LUNCH'
   if (timeValue >= 17 && timeValue < 21) return 'DINNER'
   if (timeValue >= 10 && timeValue < 17) return 'SNACK'
