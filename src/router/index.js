@@ -10,11 +10,11 @@ const routes = [
       { path: 'nutrition', component: () => import('@/views/Nutrition/NutritionListView.vue') },
       { path: 'calendar', component: () => import('@/views/Calendar/CalendarView.vue') },
       { path: 'contact', component: () => import('@/views/Contact/ContactView.vue') },
-      { 
-        path: 'mypage', 
-        component: () => import('@/views/MyPage.vue'),
-        meta: { requiresAuth: true }
-      },
+      // { 
+      //   path: 'mypage', 
+      //   component: () => import('@/views/MyPage.vue'),
+      //   meta: { requiresAuth: true }
+      // },
     ],
   },
   {
