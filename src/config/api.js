@@ -13,6 +13,7 @@ export const API_ROUTES = {
   },
   DIET: {
     ADD: '/diet/add',
+    BATCH_ADD: '/diet/batch-add',
     UPDATE: '/diet/update',
     DELETE: '/diet/delete',
     EDIT: '/diet/edit',
