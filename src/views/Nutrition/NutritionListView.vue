@@ -1,163 +1,99 @@
 <template>
-  <div class="nutrition-list-view">
-    <h1>영양 정보 조회</h1>
+  <div class="nutrition-list">
     <BaseSearchTable
       :columns="columns"
-      :rows="filteredRows"
-      :searchOptions="searchOptions"
+      :rows="nutritionData.content"
+      :search-options="searchOptions"
+      :search-state="searchState"
       :page="page"
-      :pageSize="pageSize"
-      :total="filteredRows.length"
+      :page-size="pageSize"
+      :total-elements="nutritionData.totalElements"
       :selectable="false"
+      :food-categories="foodCategories"
       @search="onSearch"
-      @pageChange="onPageChange"
+      @page-change="onPageChange"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import BaseSearchTable from '@/components/base/BaseSearchTable.vue'
+import { nutritionApi } from '@/api/nutrition'
+import { FoodCategory, FoodCategoryLabels } from '@/constants/FoodCategory'
 
 const columns = [
-  { key: 'id', label: 'ID' },
-  { key: 'name', label: '식품명' },
-  { key: 'calorie', label: '칼로리 (kcal)' },
-  { key: 'protein', label: '단백질 (g)' },
-  { key: 'fat', label: '지방 (g)' },
-  { key: 'carb', label: '탄수화물 (g)' },
-  { key: 'category', label: '카테고리' },
+  { key: 'name', label: '음식명' },
+  { key: 'calories', label: '칼로리' },
+  { key: 'protein', label: '단백질' },
+  { key: 'fat', label: '지방' },
+  { key: 'carbohydrates', label: '탄수화물' },
+  { key: 'category', label: '음식 분류' }
 ]
-const searchOptions = [
-  { value: 'name', label: '식품명' },
-  { value: 'category', label: '카테고리' },
-]
-const allRows = ref([
-  {
-    id: 1,
-    name: '국밥_돼지머리',
-    calorie: 137,
-    protein: 6.7,
-    fat: 5.16,
-    carb: 15.94,
-    category: '밥류',
-  },
-  {
-    id: 2,
-    name: '국밥_소대국밥',
-    calorie: 75,
-    protein: 3.17,
-    fat: 2.28,
-    carb: 10.38,
-    category: '밥류',
-  },
-  {
-    id: 3,
-    name: '국밥_콩나물',
-    calorie: 52,
-    protein: 1.45,
-    fat: 0.24,
-    carb: 10.93,
-    category: '테스트',
-  },
-  { id: 4, name: '기장밥', calorie: 166, protein: 3.44, fat: 0.57, carb: 36.77, category: '밥류' },
-  { id: 5, name: '김밥', calorie: 140, protein: 4.84, fat: 4.55, carb: 19.98, category: '밥류' },
-  {
-    id: 6,
-    name: '김밥_김치',
-    calorie: 130,
-    protein: 4.3,
-    fat: 4.03,
-    carb: 19.17,
-    category: '밥류',
-  },
-  {
-    id: 7,
-    name: '김밥_날치알',
-    calorie: 177,
-    protein: 6.1,
-    fat: 4.26,
-    carb: 28.66,
-    category: '밥류',
-  },
-  {
-    id: 8,
-    name: '김밥_돈가스',
-    calorie: 202,
-    protein: 5.77,
-    fat: 5.81,
-    carb: 31.64,
-    category: '밥류',
-  },
-  {
-    id: 9,
-    name: '김밥_소고기',
-    calorie: 179,
-    protein: 6.46,
-    fat: 5.56,
-    carb: 25.78,
-    category: '밥류',
-  },
-  { id: 10, name: '김밥_참치', calorie: 174, protein: 7, fat: 7.22, carb: 20.26, category: '밥류' },
-  {
-    id: 11,
-    name: '김밥_채소',
-    calorie: 158,
-    protein: 4.6,
-    fat: 3.65,
-    carb: 26.65,
-    category: '밥류',
-  },
-  {
-    id: 12,
-    name: '김밥_치즈',
-    calorie: 177,
-    protein: 6.24,
-    fat: 7.03,
-    carb: 22.1,
-    category: '밥류',
-  },
-  {
-    id: 13,
-    name: '김밥_풋고추',
-    calorie: 169,
-    protein: 4.88,
-    fat: 4.41,
-    carb: 27.52,
-    category: '밥류',
-  },
-])
-const searchState = ref({ column: 'name', keyword: '' })
-const page = ref(1)
-const pageSize = ref(10)
 
-const filteredRows = computed(() => {
-  if (!searchState.value.keyword) return allRows.value
-  return allRows.value.filter((row) => {
-    const value = String(row[searchState.value.column] || '').toLowerCase()
-    return value.includes(searchState.value.keyword.toLowerCase())
-  })
+const searchOptions = [
+  { value: 'name', label: '음식명' },
+  { value: 'category', label: '음식 분류' }
+]
+
+const foodCategories = Object.entries(FoodCategory).map(([key, value]) => ({
+  value,
+  label: FoodCategoryLabels[value]
+}))
+
+const page = ref(0)
+const pageSize = ref(10)
+const searchState = ref({
+  column: 'name',
+  keyword: ''
 })
 
-function onSearch({ column, keyword }) {
-  searchState.value = { column, keyword }
-  page.value = 1
+const nutritionData = ref({
+  content: [],
+  totalElements: 0,
+  totalPages: 0
+})
+
+const fetchNutritions = async () => {
+  try {
+    const response = await nutritionApi.getAllNutritions(page.value, pageSize.value)
+    nutritionData.value = response
+  } catch (error) {
+    console.error('영양 정보를 불러오는데 실패했습니다:', error)
+  }
 }
 
-function onPageChange(newPage) {
-  page.value = newPage
+const onSearch = async ({ column, keyword }) => {
+  if (searchState.value.column !== column || searchState.value.keyword !== keyword) {
+    page.value = 0;
+  }
+  searchState.value = { column, keyword }
+  try {
+    let response
+    if (column === 'name') {
+      response = await nutritionApi.searchNutritions(keyword, null, page.value, pageSize.value)
+    } else if (column === 'category') {
+      response = await nutritionApi.searchNutritions(null, keyword, page.value, pageSize.value)
+    }
+    nutritionData.value = response || { content: [], totalElements: 0, totalPages: 0 }
+  } catch (error) {
+    nutritionData.value = { content: [], totalElements: 0, totalPages: 0 }
+  }
 }
+
+const onPageChange = async (newPage) => {
+  page.value = newPage
+  await onSearch({ column: searchState.value.column, keyword: searchState.value.keyword })
+}
+
+onMounted(() => {
+  fetchNutritions()
+})
 </script>
 
 <style scoped>
-.nutrition-list-view {
-  max-width: 1200px;
-  margin: 2.5rem auto 0 auto;
-  padding: 0 1rem;
-}
-h1 {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-bottom: 2rem;
+.nutrition-list {
+  padding: 20px;
 }
 </style>
+

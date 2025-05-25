@@ -6,6 +6,7 @@ import { API_ROUTES } from '@/config/api'
 export const useAuthStore = defineStore('auth', () => {
   const _isLoggedIn = ref(false)
   const user = ref(null)
+  const token = ref(null)
 
   // computed 속성으로 isLoggedIn 상태를 노출
   const isLoggedIn = computed(() => {
@@ -25,6 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
         console.log('로그인 성공, 상태 변경')
         _isLoggedIn.value = true
         user.value = response.data.user
+        token.value = response.data.token
         return true
       }
       return false
@@ -44,6 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
         console.log('로그아웃 성공, 상태 변경')
         _isLoggedIn.value = false
         user.value = null
+        token.value = null
         return true
       }
       return false
@@ -53,16 +56,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function reissueToken() {
+    try {
+      const response = await axiosInstance.post('/auth/reissue')
+      token.value = response.data.token
+      return true
+    } catch (error) {
+      console.error('토큰 재발급 실패:', error)
+      throw error
+    }
+  }
+
   return {
     isLoggedIn,
     _isLoggedIn,
     user,
+    token,
     login,
-    logout
+    logout,
+    reissueToken
   }
 }, {
   persist: {
-    paths: ['_isLoggedIn', 'user'],
+    paths: ['_isLoggedIn', 'user', 'token'],
     storage: localStorage,
     key: 'auth-store'
   }

@@ -31,6 +31,7 @@
         :show="showDetailModal"
         :diets="detailDiets"
         :date="detailDate"
+        :analyze-summary="analyzeSummary"
         @update:show="showDetailModal = $event"
         @update="handleUpdateDiet"
         @delete="handleDeleteDiet"
@@ -46,6 +47,13 @@
         <NutrientPieChart :summary="analyzeSummary" />
       </template>
     </BaseModal>
+    <MealTypeConfirmModal
+      :show="showMealTypeModal"
+      :suggested-type="suggestedMealType"
+      :time="selectedTime"
+      @update:show="showMealTypeModal = $event"
+      @confirm="handleMealTypeConfirm"
+    />
   </div>
 </template>
 
@@ -65,6 +73,7 @@ import AddDietModal from './AddDietModal.vue'
 import NutritionSearchModal from './NutritionSearchModal.vue'
 import DietDetailModal from './DietDetailModal.vue'
 import NutrientPieChart from './NutrientPieChart.vue'
+import MealTypeConfirmModal from './MealTypeConfirmModal.vue'
 
 const calendarStore = useCalendarStore()
 const calendar = ref(null)
@@ -82,16 +91,17 @@ const addMealType = ref('BREAKFAST')
 const showAnalyzeModal = ref(false)
 const analyzeSummary = ref({ protein: 0, fat: 0, carbohydrates: 0 })
 
-// fake summary db (날짜별)
-const fakeSummaryMap = {}
-for (let d = 1; d <= 15; d++) {
-  const date = `2025-05-${d.toString().padStart(2, '0')}`
-  fakeSummaryMap[date] = {
-    protein: Math.floor(Math.random() * 30) + 10,
-    fat: Math.floor(Math.random() * 20) + 5,
-    carbohydrates: Math.floor(Math.random() * 60) + 20,
-  }
+const MEAL_TYPE = {
+  MORNING: { label: '아침', start: '05:00', end: '10:00' },
+  LUNCH: { label: '점심', start: '11:00', end: '15:00' },
+  DINNER: { label: '저녁', start: '17:00', end: '21:00' },
+  SNACK: { label: '간식', start: '10:00', end: '17:00' },
+  NIGHT: { label: '야식', start: '21:00', end: '05:00' }
 }
+
+const showMealTypeModal = ref(false)
+const selectedTime = ref('')
+const suggestedMealType = ref('')
 
 // 식단 추가 폼
 const dietForm = ref({
@@ -111,53 +121,47 @@ const mealTypeOptions = [
   { value: 'DINNER', label: '저녁' },
 ]
 
-// 영양정보 표 컬럼 및 옵션 (NutritionListView 참고)
+// 영양정보 표 컬럼 및 옵션
 const nutritionColumns = [
-  { key: 'id', label: 'ID' },
-  { key: 'name', label: '식품명' },
-  { key: 'calorie', label: '칼로리 (kcal)' },
-  { key: 'protein', label: '단백질 (g)' },
-  { key: 'fat', label: '지방 (g)' },
-  { key: 'carb', label: '탄수화물 (g)' },
-  { key: 'category', label: '카테고리' },
+  { key: 'name', label: '음식명' },
+  { key: 'calories', label: '칼로리' },
+  { key: 'protein', label: '단백질' },
+  { key: 'fat', label: '지방' },
+  { key: 'carbohydrates', label: '탄수화물' },
+  { key: 'category', label: '음식 분류' }
 ]
-const nutritionSearchOptions = [
-  { value: 'name', label: '식품명' },
-  { value: 'category', label: '카테고리' },
-]
-const nutritionPage = ref(1)
-const nutritionPageSize = ref(8)
-const nutritionAllRows = ref([]) // 실제 API 연동 시 fetch로 대체
-const nutritionSearchState = ref({ column: 'name', keyword: '' })
 
-const nutritionFilteredRows = computed(() => {
-  if (!nutritionSearchState.value.keyword) return nutritionAllRows.value
-  return nutritionAllRows.value.filter((row) => {
-    const value = String(row[nutritionSearchState.value.column] || '').toLowerCase()
-    return value.includes(nutritionSearchState.value.keyword.toLowerCase())
-  })
-})
+const nutritionSearchOptions = [
+  { value: 'name', label: '음식명' },
+  { value: 'category', label: '음식 분류' }
+]
+
+const nutritionPage = ref(0)
+const nutritionPageSize = ref(10)
+const nutritionSearchState = ref({ column: 'name', keyword: '' })
 
 function handleNutritionSearch({ column, keyword }) {
   nutritionSearchState.value = { column, keyword }
-  nutritionPage.value = 1
+  nutritionPage.value = 0
 }
+
 function handleNutritionSelect(id) {
-  const food = nutritionAllRows.value.find((f) => f.id === id)
+  const food = nutritionResults.value.find((f) => f.id === id)
   if (food) {
     selectedNutrition.value = {
       id: food.id,
       name: food.name,
-      calories: food.calorie,
+      calories: food.calories,
       protein: food.protein,
       fat: food.fat,
-      carbohydrates: food.carb,
+      carbohydrates: food.carbohydrates,
       category: food.category,
     }
     dietForm.value.foodSearch = food.name
     showNutritionModal.value = false
   }
 }
+
 function handleNutritionPageChange(newPage) {
   nutritionPage.value = newPage
 }
@@ -192,28 +196,54 @@ function generateFakeEvents() {
   for (let d = 1; d <= 15; d++) {
     const date = `2025-05-${d.toString().padStart(2, '0')}`
     const icons = getRandomMealIcons()
+    
+    if (icons.breakfast === '🍳') {
     events.push({
-      title: icons.breakfast + icons.lunch + icons.dinner,
-      start: date,
-      allDay: true,
+        title: '🍳 아침',
+        start: `${date}T06:00:00`,
+        end: `${date}T10:00:00`,
       extendedProps: {
         summaryDate: date,
-        breakfastCalories: icons.breakfast === '🍳' ? 300 : 0,
-        lunchCalories: icons.lunch === '🍚' ? 500 : 0,
-        dinnerCalories: icons.dinner === '🍖' ? 700 : 0,
-      },
+          mealType: 'BREAKFAST',
+          breakfastCalories: 300
+        }
+      })
+    }
+    
+    if (icons.lunch === '🍚') {
+      events.push({
+        title: '🍚 점심',
+        start: `${date}T11:00:00`,
+        end: `${date}T15:00:00`,
+        extendedProps: {
+          summaryDate: date,
+          mealType: 'LUNCH',
+          lunchCalories: 500
+        }
+      })
+    }
+    
+    if (icons.dinner === '🍖') {
+      events.push({
+        title: '🍖 저녁',
+        start: `${date}T17:00:00`,
+        end: `${date}T21:00:00`,
+        extendedProps: {
+          summaryDate: date,
+          mealType: 'DINNER',
+          dinnerCalories: 700
+        }
     })
+    }
   }
   return events
 }
 
 function eventContent(arg) {
-  const icons = arg.event.title
-  const date = arg.event.startStr
+  const title = arg.event.title
   return {
     html: `
-      <div class='cell-meal-strip'>${icons}</div>
-      <div class='cell-analyze-strip' data-date='${date}' style="color:#222;">분석</div>
+      <div class='cell-meal-strip'>${title}</div>
     `,
   }
 }
@@ -223,7 +253,7 @@ onMounted(() => {
   const calendarEl = document.getElementById('calendar')
   calendar.value = new Calendar(calendarEl, {
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-    initialView: 'dayGridMonth',
+    initialView: 'timeGridWeek',
     headerToolbar: {
       left: 'prev,next today',
       center: 'title',
@@ -232,36 +262,24 @@ onMounted(() => {
     views: {
       timeGridWeek: {
         titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+        slotMinTime: '06:00:00',
+        slotMaxTime: '22:00:00',
       },
       timeGridDay: {
         titleFormat: { year: 'numeric', month: 'long', day: 'numeric' },
+        slotMinTime: '06:00:00',
+        slotMaxTime: '22:00:00',
       },
     },
     events: generateFakeEvents(),
     eventContent,
     eventClick: handleEventClick,
-    eventDidMount: function (info) {
-      const analyzeEl = info.el.querySelector('.cell-analyze-strip')
-      if (analyzeEl) {
-        analyzeEl.addEventListener('click', (e) => {
-          e.stopPropagation()
-          const date = analyzeEl.getAttribute('data-date')
-          if (fakeSummaryMap[date]) {
-            analyzeSummary.value = fakeSummaryMap[date]
-            showAnalyzeModal.value = true
-          }
-        })
-      }
-    },
     height: 'auto',
     contentHeight: 800,
     expandRows: true,
     stickyHeaderDates: true,
-    dayMaxEvents: true,
+    dayMaxEvents: false,
     nowIndicator: true,
-    slotMinTime: '06:00:00',
-    slotMaxTime: '22:00:00',
-    allDaySlot: true,
     slotDuration: '01:00:00',
     slotLabelInterval: '01:00',
     slotLabelFormat: {
@@ -269,121 +287,17 @@ onMounted(() => {
       minute: '2-digit',
       hour12: false,
     },
+    eventMaxStack: 3,
+    eventMinHeight: 30,
+    eventShortHeight: 30,
+    eventLongPressDelay: 200,
+    eventOverlap: false,
+    eventConstraint: {
+      startTime: '06:00',
+      endTime: '22:00',
+    }
   })
   calendar.value.render()
-
-  // 기존 NutritionListView의 allRows를 그대로 사용 (실제 서비스에서는 API로 대체)
-  nutritionAllRows.value = [
-    {
-      id: 1,
-      name: '국밥_돼지머리',
-      calorie: 137,
-      protein: 6.7,
-      fat: 5.16,
-      carb: 15.94,
-      category: '밥류',
-    },
-    {
-      id: 2,
-      name: '국밥_소대국밥',
-      calorie: 75,
-      protein: 3.17,
-      fat: 2.28,
-      carb: 10.38,
-      category: '밥류',
-    },
-    {
-      id: 3,
-      name: '국밥_콩나물',
-      calorie: 52,
-      protein: 1.45,
-      fat: 0.24,
-      carb: 10.93,
-      category: '테스트',
-    },
-    {
-      id: 4,
-      name: '기장밥',
-      calorie: 166,
-      protein: 3.44,
-      fat: 0.57,
-      carb: 36.77,
-      category: '밥류',
-    },
-    { id: 5, name: '김밥', calorie: 140, protein: 4.84, fat: 4.55, carb: 19.98, category: '밥류' },
-    {
-      id: 6,
-      name: '김밥_김치',
-      calorie: 130,
-      protein: 4.3,
-      fat: 4.03,
-      carb: 19.17,
-      category: '밥류',
-    },
-    {
-      id: 7,
-      name: '김밥_날치알',
-      calorie: 177,
-      protein: 6.1,
-      fat: 4.26,
-      carb: 28.66,
-      category: '밥류',
-    },
-    {
-      id: 8,
-      name: '김밥_돈가스',
-      calorie: 202,
-      protein: 5.77,
-      fat: 5.81,
-      carb: 31.64,
-      category: '밥류',
-    },
-    {
-      id: 9,
-      name: '김밥_소고기',
-      calorie: 179,
-      protein: 6.46,
-      fat: 5.56,
-      carb: 25.78,
-      category: '밥류',
-    },
-    {
-      id: 10,
-      name: '김밥_참치',
-      calorie: 174,
-      protein: 7,
-      fat: 7.22,
-      carb: 20.26,
-      category: '밥류',
-    },
-    {
-      id: 11,
-      name: '김밥_채소',
-      calorie: 158,
-      protein: 4.6,
-      fat: 3.65,
-      carb: 26.65,
-      category: '밥류',
-    },
-    {
-      id: 12,
-      name: '김밥_치즈',
-      calorie: 177,
-      protein: 6.24,
-      fat: 7.03,
-      carb: 22.1,
-      category: '밥류',
-    },
-    {
-      id: 13,
-      name: '김밥_풋고추',
-      calorie: 169,
-      protein: 4.88,
-      fat: 4.41,
-      carb: 27.52,
-      category: '밥류',
-    },
-  ]
 })
 
 // 이벤트 가져오기
@@ -392,15 +306,34 @@ async function fetchEvents(info, successCallback, failureCallback) {
     const response = await fetch(`/diet/summaries?start=${info.startStr}&end=${info.endStr}`)
     const data = await response.json()
 
-    const events = data.map((summary) => ({
-      title:
-        (summary.breakfastCalories > 0 ? '🍳' : '❌') +
-        (summary.lunchCalories > 0 ? '🍚' : '❌') +
-        (summary.dinnerCalories > 0 ? '🍖' : '❌'),
-      start: summary.summaryDate,
-      allDay: true,
-      extendedProps: summary,
-    }))
+    const events = data.flatMap((summary) => {
+      const events = []
+      if (summary.breakfastCalories > 0) {
+        events.push({
+          title: '🍳 아침',
+          start: `${summary.summaryDate}T06:00:00`,
+          end: `${summary.summaryDate}T10:00:00`,
+          extendedProps: { ...summary, mealType: 'BREAKFAST' }
+        })
+      }
+      if (summary.lunchCalories > 0) {
+        events.push({
+          title: '🍚 점심',
+          start: `${summary.summaryDate}T11:00:00`,
+          end: `${summary.summaryDate}T15:00:00`,
+          extendedProps: { ...summary, mealType: 'LUNCH' }
+        })
+      }
+      if (summary.dinnerCalories > 0) {
+        events.push({
+          title: '🍖 저녁',
+          start: `${summary.summaryDate}T17:00:00`,
+          end: `${summary.summaryDate}T21:00:00`,
+          extendedProps: { ...summary, mealType: 'DINNER' }
+        })
+      }
+      return events
+    })
 
     successCallback(events)
   } catch (error) {
@@ -411,21 +344,26 @@ async function fetchEvents(info, successCallback, failureCallback) {
 
 // 이벤트 클릭 핸들러
 function handleEventClick(info) {
-  // fake: 날짜별로 랜덤 식단 2~3개 생성
   const date = info.event.startStr
   detailDate.value = date
-  const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER']
+  const mealType = info.event.extendedProps.mealType
   const diets = []
-  mealTypes.forEach((meal) => {
+  
+  // 해당 날짜의 식사 정보 가져오기
+  if (fakeSummaryMap[date] && fakeSummaryMap[date][mealType]) {
+    analyzeSummary.value = fakeSummaryMap[date][mealType]
+  }
+
+  // fake: 날짜별로 랜덤 식단 2~3개 생성
     if (Math.random() > 0.3) {
       diets.push({
         id: Math.floor(Math.random() * 10000),
-        foodName: meal === 'BREAKFAST' ? '국밥_돼지머리' : meal === 'LUNCH' ? '흰쌀밥' : '현미밥',
+      foodName: mealType === 'BREAKFAST' ? '국밥_돼지머리' : mealType === 'LUNCH' ? '흰쌀밥' : '현미밥',
         amount: Math.floor(Math.random() * 200) + 50,
-        mealType: meal,
+      mealType: mealType,
       })
     }
-  })
+  
   detailDiets.value = diets
   nextTick(() => {
     showDetailModal.value = true
@@ -616,6 +554,46 @@ function refetchEvents() {
 
 function handleAddMeal(mealType) {
   addMealType.value = mealType
+  showAddModal.value = true
+}
+
+function getMealTypeByTime(time) {
+  const hour = parseInt(time.split(':')[0])
+  const minute = parseInt(time.split(':')[1])
+  const timeValue = hour + minute / 60
+
+  // 시간대별 매핑
+  if (timeValue >= 5 && timeValue < 10) return 'MORNING'
+  if (timeValue >= 11 && timeValue < 15) return 'LUNCH'
+  if (timeValue >= 17 && timeValue < 21) return 'DINNER'
+  if (timeValue >= 10 && timeValue < 17) return 'SNACK'
+  if (timeValue >= 21 || timeValue < 5) return 'NIGHT'
+  
+  return null
+}
+
+function handleTimeSelect(time) {
+  selectedTime.value = time
+  const mealType = getMealTypeByTime(time)
+  
+  if (mealType === 'SNACK' || mealType === 'NIGHT') {
+    suggestedMealType.value = mealType
+    showMealTypeModal.value = true
+  } else {
+    addMealType.value = mealType
+    showAddModal.value = true
+  }
+}
+
+// 식단 추가 모달 열기
+function openAddDietModal(time) {
+  handleTimeSelect(time)
+}
+
+// 식사 유형 선택 모달에서 선택 완료
+function handleMealTypeConfirm(mealType) {
+  addMealType.value = mealType
+  showMealTypeModal.value = false
   showAddModal.value = true
 }
 </script>

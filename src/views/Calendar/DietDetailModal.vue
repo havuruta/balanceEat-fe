@@ -1,74 +1,89 @@
 <template>
-  <BaseModal :model-value="show" @close="$emit('update:show', false)">
+  <BaseModal :model-value="show" @close="$emit('update:show', false)" size="lg">
+    <template #header>
+      <h3 class="modal-title">{{ date }} 식단 상세</h3>
+    </template>
     <template #default>
-      <h3 class="detail-title">{{ date }} 식단 상세</h3>
-      <div v-for="meal in mealTypes" :key="meal" class="meal-section">
-        <div class="meal-header">
-          <h4 class="meal-label">{{ mealLabel(meal) }}</h4>
+      <div class="diet-detail-container">
+        <div class="diet-list">
+          <h4>식단 목록</h4>
+          <div v-for="mealType in ['BREAKFAST', 'LUNCH', 'DINNER']" :key="mealType" class="meal-section">
+            <div class="meal-section-header">{{ getMealTypeLabel(mealType) }}</div>
+            <template v-if="dietSummary[mealType] && dietSummary[mealType].length">
+              <div v-for="diet in dietSummary[mealType]" :key="diet.id" class="diet-item">
+                <div class="diet-info">
+                  <span class="food-name">{{ diet.foodName }}</span>
+                  <span class="amount">{{ diet.amount }}g</span>
+                </div>
+                <div class="diet-actions">
+                  <BaseButton color="primary" size="sm" @click="$emit('update', diet)">수정</BaseButton>
+                  <BaseButton color="danger" size="sm" @click="$emit('delete', diet)">삭제</BaseButton>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <div class="no-record">기록 정보가 없어요! 등록해주세요</div>
+            </template>
+          </div>
+          <div class="add-meal-buttons">
           <BaseButton
-            class="add-btn"
-            color="primary"
+              color="secondary"
             size="sm"
-            style="border-radius: 50%; padding: 0.3rem 0.6rem; min-width: 32px"
-            @click="$emit('add', meal)"
+              @click="$emit('add')"
+              style="width: 100%;"
           >
-            <span style="font-size: 1.3rem; line-height: 1">+</span>
+              추가하기
           </BaseButton>
+          </div>
         </div>
-        <div v-if="dietsByMeal[meal] && dietsByMeal[meal].length" class="diet-list">
-          <div v-for="diet in dietsByMeal[meal]" :key="diet.id" class="diet-row">
-            <span class="food-name">{{ diet.foodName }}</span>
-            <BaseInput
-              v-if="editId === diet.id"
-              v-model="editAmount"
-              type="number"
-              style="width: 80px; min-width: 80px"
-            />
-            <span v-else class="amount">{{ diet.amount }}g</span>
-            <div class="row-btns">
-              <BaseButton
-                v-if="editId !== diet.id"
-                color="primary"
-                size="sm"
-                @click="startEdit(diet)"
-                ><i class="fa fa-edit"></i> 수정</BaseButton
-              >
-              <BaseButton v-else color="primary" size="sm" @click="saveEdit(diet)"
-                ><i class="fa fa-check"></i> 저장</BaseButton
-              >
-              <BaseButton v-if="editId === diet.id" color="secondary" size="sm" @click="cancelEdit"
-                ><i class="fa fa-times"></i> 취소</BaseButton
-              >
-              <BaseButton color="danger" size="sm" @click="deleteDiet(diet)"
-                ><i class="fa fa-trash"></i> 삭제</BaseButton
-              >
+        <div class="nutrition-analysis">
+          <h4>영양 분석</h4>
+          <div class="nutrition-chart">
+            <NutrientPieChart :summary="dietSummary.total" />
+          </div>
+          <div class="nutrition-details">
+            <div class="nutrition-item">
+              <span class="label">단백질</span>
+              <span class="value">{{ dietSummary.total.protein }}g</span>
+            </div>
+            <div class="nutrition-item">
+              <span class="label">지방</span>
+              <span class="value">{{ dietSummary.total.fat }}g</span>
+            </div>
+            <div class="nutrition-item">
+              <span class="label">탄수화물</span>
+              <span class="value">{{ dietSummary.total.carbohydrates }}g</span>
             </div>
           </div>
         </div>
-        <div v-else class="no-diet">식단 없음</div>
-      </div>
-      <div class="modal-actions">
-        <BaseButton color="secondary" @click="$emit('update:show', false)">닫기</BaseButton>
       </div>
     </template>
   </BaseModal>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { defineProps, defineEmits } from 'vue'
 import BaseModal from '@/components/base/Modal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
-import BaseInput from '@/components/base/BaseInput.vue'
+import NutrientPieChart from './NutrientPieChart.vue'
 
 const props = defineProps({
   show: Boolean,
-  diets: Array, // [{id, foodName, amount, mealType, ...}]
   date: String,
+  dietSummary: {
+    type: Object,
+    default: () => ({
+      BREAKFAST: [],
+      LUNCH: [],
+      DINNER: [],
+      total: { protein: 0, fat: 0, carbohydrates: 0 }
+    })
+  }
 })
-const emit = defineEmits(['update:show', 'update', 'delete', 'add'])
 
-const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER']
-function mealLabel(type) {
+defineEmits(['update:show', 'update', 'delete', 'add'])
+
+function getMealTypeLabel(type) {
   switch (type) {
     case 'BREAKFAST':
       return '아침'
@@ -80,96 +95,126 @@ function mealLabel(type) {
       return type
   }
 }
-const dietsByMeal = computed(() => {
-  const result = { BREAKFAST: [], LUNCH: [], DINNER: [] }
-  if (props.diets) {
-    props.diets.forEach((diet) => {
-      if (result[diet.mealType]) result[diet.mealType].push(diet)
-    })
-  }
-  return result
-})
-
-const editId = ref(null)
-const editAmount = ref('')
-function startEdit(diet) {
-  editId.value = diet.id
-  editAmount.value = diet.amount
-}
-function saveEdit(diet) {
-  emit('update', { ...diet, amount: Number(editAmount.value) })
-  editId.value = null
-  editAmount.value = ''
-}
-function cancelEdit() {
-  editId.value = null
-  editAmount.value = ''
-}
-function deleteDiet(diet) {
-  emit('delete', diet)
-}
 </script>
 
 <style scoped>
-.detail-title {
-  font-size: 1.3rem;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 1.5rem;
+.diet-detail-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 1rem;
 }
+
+.diet-list {
+  border-right: 1px solid #eee;
+  padding-right: 2rem;
+}
+
 .meal-section {
   margin-bottom: 1.5rem;
 }
-.meal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.7rem;
-}
-.meal-label {
-  font-size: 1.1rem;
+.meal-section-header {
+  font-size: 1.05rem;
   font-weight: 600;
   color: #4a90e2;
+  margin-bottom: 0.5rem;
 }
-.add-btn {
-  margin-left: 0.5rem;
+.no-record {
+  color: #aaa;
+  font-size: 0.98rem;
+  padding: 0.7rem 0 1.2rem 0;
 }
-.diet-list {
+
+.nutrition-analysis {
+  padding-left: 1rem;
+}
+
+h4 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #2d3a4b;
+}
+
+.diet-item {
   display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-}
-.diet-row {
-  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.7rem;
-  background: #f7fafd;
-  border-radius: 7px;
-  padding: 0.7rem 1rem;
-  min-width: 600px;
+  padding: 0.75rem;
+  border-bottom: 1px solid #eee;
 }
+
+.diet-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
 .food-name {
-  font-weight: 500;
-  min-width: 90px;
+  color: #2d3a4b;
 }
+
 .amount {
-  font-size: 1rem;
-  color: #333;
-  min-width: 50px;
+  color: #666;
 }
-.row-btns {
+
+.diet-actions {
   display: flex;
   gap: 0.5rem;
-  min-width: 220px;
 }
-.no-diet {
-  color: #aaa;
-  font-size: 1rem;
-  margin-left: 1rem;
-}
-.modal-actions {
+
+.add-meal-buttons {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 2rem;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.nutrition-chart {
+  margin-bottom: 1.5rem;
+}
+
+.nutrition-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.nutrition-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.nutrition-item .label {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.nutrition-item .value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3a4b;
+}
+
+@media (max-width: 768px) {
+  .diet-detail-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .diet-list {
+    border-right: none;
+    border-bottom: 1px solid #eee;
+    padding-right: 0;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .nutrition-analysis {
+    padding-left: 0;
+  }
 }
 </style>

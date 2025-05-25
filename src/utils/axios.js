@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { API_BASE_URL } from '@/config/api'
+import { useAuthStore } from '@/stores/authStore'
 
 // axios 인스턴스 생성
 const axiosInstance = axios.create({
@@ -10,10 +11,29 @@ const axiosInstance = axios.create({
   }
 })
 
+let isRefreshing = false
+let refreshSubscribers = []
+
+// 토큰 재발급 후 대기 중인 요청들을 처리
+const onRefreshed = (token) => {
+  refreshSubscribers.forEach(callback => callback(token))
+  refreshSubscribers = []
+}
+
+// 토큰 재발급 중인 요청을 큐에 추가
+const addRefreshSubscriber = (callback) => {
+  refreshSubscribers.push(callback)
+}
+
 // 요청 인터셉터
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 요청 전에 수행할 작업
+    const authStore = useAuthStore()
+    const token = authStore.token
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error) => {
@@ -28,21 +48,41 @@ axiosInstance.interceptors.response.use(
     return response
   },
   async (error) => {
-    if (error.response) {
-      // 401 에러 처리 (토큰 만료)
-      if (error.response.status === 401) {
-        try {
-          // 토큰 재발급 시도
-          await axiosInstance.post('/auth/reissue')
-          // 원래 요청 재시도
-          return axiosInstance(error.config)
-        } catch (refreshError) {
-          // 토큰 재발급 실패 시 로그인 페이지로 이동
-          window.location.href = '/login'
-          return Promise.reject(refreshError)
-        }
+    const originalRequest = error.config
+    const authStore = useAuthStore()
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // 이미 토큰 재발급 중이면 대기
+        return new Promise(resolve => {
+          addRefreshSubscriber(token => {
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(axiosInstance(originalRequest))
+          })
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        // 토큰 재발급 시도
+        await authStore.reissueToken()
+        isRefreshing = false
+        onRefreshed(authStore.token)
+        
+        // 원래 요청 재시도
+        originalRequest.headers.Authorization = `Bearer ${authStore.token}`
+        return axiosInstance(originalRequest)
+      } catch (refreshError) {
+        isRefreshing = false
+        // 토큰 재발급 실패 시 로그아웃 처리
+        await authStore.logout()
+        window.location.href = '/login'
+        return Promise.reject(refreshError)
       }
     }
+
     return Promise.reject(error)
   }
 )
