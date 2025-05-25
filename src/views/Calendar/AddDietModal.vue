@@ -127,7 +127,7 @@ import { ElInputNumber } from 'element-plus'
 import NutritionSearchModal from '@/views/Calendar/NutritionSearchModal.vue'
 
 const MEAL_TYPE = {
-  MORNING: { label: '아침', start: '05:00', end: '10:00' },
+  BREAKFAST: { label: '아침', start: '05:00', end: '10:00' },
   LUNCH: { label: '점심', start: '11:00', end: '15:00' },
   DINNER: { label: '저녁', start: '17:00', end: '21:00' },
   SNACK: { label: '간식', start: '10:00', end: '17:00' },
@@ -244,10 +244,19 @@ async function submitAllFoods() {
   if (isSubmitting.value) return
   try {
     isSubmitting.value = true
+    const diets = addedFoods.value.map(food => ({
+      nutritionId: food.id,
+      amount: food.amount.toString(),
+      note: food.note || '',
+      mealType: food.mealType,
+      dietDate: food.dietDate,
+      mealTime: food.mealTime
+    }))
+    
     const response = await fetch('/diet/batch-add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ diets: addedFoods.value })
+      body: JSON.stringify({ diets })
     })
     if (!response.ok) throw new Error(await response.text())
     alert('식단이 저장되었습니다!')
@@ -280,7 +289,7 @@ const totalNutrition = computed(() => {
 
 function getMealTypeLabel(type) {
   switch (type) {
-    case 'MORNING': return '아침'
+    case 'BREAKFAST': return '아침'
     case 'LUNCH': return '점심'
     case 'DINNER': return '저녁'
     case 'SNACK': return '간식'
@@ -297,7 +306,7 @@ function handleTimeChange() {
   let newMealType = currentMealType.value
 
   if (timeValue >= 5 && timeValue < 10) {
-    newMealType = 'MORNING'
+    newMealType = 'BREAKFAST'
   } else if (timeValue >= 11 && timeValue < 15) {
     newMealType = 'LUNCH'
   } else if (timeValue >= 17 && timeValue < 21) {
@@ -340,7 +349,7 @@ watch(() => props.show, (newVal) => {
     const hour = now.getHours()
     const minute = now.getMinutes()
     const timeValue = hour + minute / 60
-    if (timeValue >= 5 && timeValue < 10) currentMealType.value = 'MORNING'
+    if (timeValue >= 5 && timeValue < 10) currentMealType.value = 'BREAKFAST'
     else if (timeValue >= 11 && timeValue < 15) currentMealType.value = 'LUNCH'
     else if (timeValue >= 17 && timeValue < 21) currentMealType.value = 'DINNER'
     else if (timeValue >= 21 || timeValue < 5) currentMealType.value = 'NIGHT'
