@@ -1,5 +1,5 @@
 <template>
-  <BaseModal :model-value="show" @close="$emit('update:show', false)" :style="{ zIndex: 3000 }">
+  <BaseModal :model-value="show" @close="handleModalClose" :style="{ zIndex: 3000 }">
     <template #header>
       <h3 class="modal-title">식단 추가</h3>
     </template>
@@ -100,7 +100,7 @@
             />
           </div>
           <div class="form-actions">
-            <BaseButton color="secondary" @click="$emit('update:show', false)">취소</BaseButton>
+            <BaseButton color="secondary" @click="handleModalClose">취소</BaseButton>
             <BaseButton color="primary" @click="handleAddButtonClick">추가</BaseButton>
             <BaseButton color="primary" @click="submitAllFoods" :disabled="isSubmitting || addedFoods.length === 0">
               {{ isSubmitting ? '저장 중...' : '저장' }}
@@ -120,11 +120,14 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useCalendarStore } from '@/stores/calendarStore'
+import { useAuthStore } from '@/stores/authStore'
 import BaseModal from '@/components/base/Modal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import { ElInputNumber } from 'element-plus'
 import NutritionSearchModal from '@/views/Calendar/NutritionSearchModal.vue'
+import axiosInstance from '@/utils/axios'
+import { API_ROUTES } from '@/config/api'
 
 const MEAL_TYPE = {
   BREAKFAST: { label: '아침', start: '05:00', end: '10:00' },
@@ -147,6 +150,7 @@ const props = defineProps({
 const emit = defineEmits(['update:show', 'refresh', 'update:mealType'])
 
 const calendarStore = useCalendarStore()
+const authStore = useAuthStore()
 const selectedFood = ref(null)
 const foodSearch = ref('')
 const amount = ref(100)
@@ -158,15 +162,19 @@ const isSubmitting = ref(false)
 const addedFoods = ref([])
 const showNutritionSearch = ref(false)
 
+// 모달 닫기 처리
+function handleModalClose() {
+  if (!isSubmitting.value) {
+    emit('update:show', false)
+  }
+}
+
 // store의 selectedFood를 감시
 watch(() => calendarStore.selectedFood, (newFood) => {
   console.log('[watch] store의 selectedFood 변경:', newFood)
-  if (newFood) {
+  if (newFood && !isSubmitting.value) {
     handleFoodSelection(newFood)
-    // 모달 닫기
     calendarStore.showNutritionModal = false
-    // store 초기화
-    calendarStore.selectedFood = null
   }
 }, { immediate: true })
 
@@ -190,6 +198,8 @@ function handleFoodSelection(food) {
     foodSearch.value = food.name // 음식 이름 표시
     amount.value = 100
     closeNutritionSearch()
+    // store 초기화는 여기서 수행
+    calendarStore.selectedFood = null
   }
 }
 
@@ -240,8 +250,9 @@ function removeFood(idx) {
   addedFoods.value.splice(idx, 1)
 }
 
-async function submitAllFoods() {
+const submitAllFoods = async () => {
   if (isSubmitting.value) return
+  
   try {
     isSubmitting.value = true
     const diets = addedFoods.value.map(food => ({
@@ -252,19 +263,18 @@ async function submitAllFoods() {
       dietDate: food.dietDate,
       mealTime: food.mealTime
     }))
+
+    const response = await axiosInstance.post(API_ROUTES.DIET.BATCH_ADD, { diets })
     
-    const response = await fetch('/diet/batch-add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ diets })
-    })
-    if (!response.ok) throw new Error(await response.text())
-    alert('식단이 저장되었습니다!')
-    addedFoods.value = []
-    emit('update:show', false)
-    emit('refresh')
+    if (response.status === 200) {
+      alert('식단이 성공적으로 등록되었습니다.')
+      addedFoods.value = []
+      emit('refresh')
+      handleModalClose()
+    }
   } catch (error) {
-    alert(error.message || '식단 저장 중 오류가 발생했습니다.')
+    console.error('식단 등록 중 오류 발생:', error)
+    alert(error.response?.data || '식단 등록 중 오류가 발생했습니다.')
   } finally {
     isSubmitting.value = false
   }
