@@ -1,177 +1,151 @@
 <template>
   <BaseModal :model-value="show" @close="closeModal" :style="{ zIndex: 4000 }">
     <template #default>
-      <BaseSearchTable
-        :columns="nutritionColumns"
-        :rows="nutritionFilteredRows"
-        :searchOptions="nutritionSearchOptions"
-        :page="nutritionPage"
-        :pageSize="nutritionPageSize"
-        :total="nutritionFilteredRows.length"
-        @search="handleNutritionSearch"
-        @select="handleNutritionSelect"
-        @pageChange="handleNutritionPageChange"
-      />
+      <div class="nutrition-list-modal">
+        <BaseSearchTable
+          :columns="columns"
+          :rows="nutritionData.content"
+          :search-options="searchOptions"
+          :search-state="searchState"
+          :page="page"
+          :page-size="pageSize"
+          :total-elements="nutritionData.totalElements"
+          :food-categories="foodCategories"
+          :selectable="true"
+          :is-modal="true"
+          @search="onSearch"
+          @select="onSelect"
+          @page-change="onPageChange"
+        />
+      </div>
     </template>
   </BaseModal>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useCalendarStore } from '@/stores/calendarStore'
 import BaseModal from '@/components/base/Modal.vue'
 import BaseSearchTable from '@/components/base/BaseSearchTable.vue'
+import { nutritionApi } from '@/api/nutrition'
+import { FoodCategory, FoodCategoryLabels } from '@/constants/FoodCategory'
 
 const props = defineProps({
   show: Boolean,
+  amount: { type: [Number, String], default: 100 }
 })
-const emit = defineEmits(['update:show'])
+const emit = defineEmits(['update:show', 'food-picked'])
 const calendarStore = useCalendarStore()
 
-const nutritionColumns = [
-  { key: 'id', label: 'ID' },
-  { key: 'name', label: '식품명' },
-  { key: 'calorie', label: '칼로리 (kcal)' },
-  { key: 'protein', label: '단백질 (g)' },
-  { key: 'fat', label: '지방 (g)' },
-  { key: 'carb', label: '탄수화물 (g)' },
-  { key: 'category', label: '카테고리' },
+const columns = [
+  { key: 'name', label: '음식명' },
+  { key: 'calories', label: '칼로리' },
+  { key: 'protein', label: '단백질' },
+  { key: 'fat', label: '지방' },
+  { key: 'carbohydrates', label: '탄수화물' },
+  { key: 'category', label: '음식 분류' }
 ]
-const nutritionSearchOptions = [
-  { value: 'name', label: '식품명' },
-  { value: 'category', label: '카테고리' },
-]
-const nutritionPage = ref(1)
-const nutritionPageSize = ref(8)
-const nutritionAllRows = ref([
-  {
-    id: 1,
-    name: '국밥_돼지머리',
-    calorie: 137,
-    protein: 6.7,
-    fat: 5.16,
-    carb: 15.94,
-    category: '밥류',
-  },
-  {
-    id: 2,
-    name: '국밥_소대국밥',
-    calorie: 75,
-    protein: 3.17,
-    fat: 2.28,
-    carb: 10.38,
-    category: '밥류',
-  },
-  {
-    id: 3,
-    name: '국밥_콩나물',
-    calorie: 52,
-    protein: 1.45,
-    fat: 0.24,
-    carb: 10.93,
-    category: '테스트',
-  },
-  { id: 4, name: '기장밥', calorie: 166, protein: 3.44, fat: 0.57, carb: 36.77, category: '밥류' },
-  { id: 5, name: '김밥', calorie: 140, protein: 4.84, fat: 4.55, carb: 19.98, category: '밥류' },
-  {
-    id: 6,
-    name: '김밥_김치',
-    calorie: 130,
-    protein: 4.3,
-    fat: 4.03,
-    carb: 19.17,
-    category: '밥류',
-  },
-  {
-    id: 7,
-    name: '김밥_날치알',
-    calorie: 177,
-    protein: 6.1,
-    fat: 4.26,
-    carb: 28.66,
-    category: '밥류',
-  },
-  {
-    id: 8,
-    name: '김밥_돈가스',
-    calorie: 202,
-    protein: 5.77,
-    fat: 5.81,
-    carb: 31.64,
-    category: '밥류',
-  },
-  {
-    id: 9,
-    name: '김밥_소고기',
-    calorie: 179,
-    protein: 6.46,
-    fat: 5.56,
-    carb: 25.78,
-    category: '밥류',
-  },
-  { id: 10, name: '김밥_참치', calorie: 174, protein: 7, fat: 7.22, carb: 20.26, category: '밥류' },
-  {
-    id: 11,
-    name: '김밥_채소',
-    calorie: 158,
-    protein: 4.6,
-    fat: 3.65,
-    carb: 26.65,
-    category: '밥류',
-  },
-  {
-    id: 12,
-    name: '김밥_치즈',
-    calorie: 177,
-    protein: 6.24,
-    fat: 7.03,
-    carb: 22.1,
-    category: '밥류',
-  },
-  {
-    id: 13,
-    name: '김밥_풋고추',
-    calorie: 169,
-    protein: 4.88,
-    fat: 4.41,
-    carb: 27.52,
-    category: '밥류',
-  },
-])
-const nutritionSearchState = ref({ column: 'name', keyword: '' })
 
-const nutritionFilteredRows = computed(() => {
-  if (!nutritionSearchState.value.keyword) return nutritionAllRows.value
-  return nutritionAllRows.value.filter((row) => {
-    const value = String(row[nutritionSearchState.value.column] || '').toLowerCase()
-    return value.includes(nutritionSearchState.value.keyword.toLowerCase())
-  })
+const searchOptions = [
+  { value: 'name', label: '음식명' },
+  { value: 'category', label: '음식 분류' }
+]
+
+const foodCategories = Object.entries(FoodCategory).map(([key, value]) => ({
+  value,
+  label: FoodCategoryLabels[value]
+}))
+
+const page = ref(0)
+const pageSize = ref(10)
+const searchState = ref({ column: 'name', keyword: '' })
+const nutritionData = ref({
+  content: [],
+  totalElements: 0,
+  totalPages: 0
 })
+const loading = ref(false)
 
-function handleNutritionSearch({ column, keyword }) {
-  nutritionSearchState.value = { column, keyword }
-  nutritionPage.value = 1
-}
-function handleNutritionSelect(id) {
-  const food = nutritionAllRows.value.find((f) => f.id === id)
-  if (food) {
-    calendarStore.setSelectedNutrition({
-      id: food.id,
-      name: food.name,
-      calories: food.calorie,
-      protein: food.protein,
-      fat: food.fat,
-      carbohydrates: food.carb,
-      category: food.category,
-    })
-    closeModal()
+const fetchNutritions = async () => {
+  try {
+    const response = await nutritionApi.getAllNutritions(page.value, pageSize.value)
+    nutritionData.value = response
+  } catch (error) {
+    console.error('영양 정보를 불러오는데 실패했습니다:', error)
   }
 }
-function handleNutritionPageChange(newPage) {
-  nutritionPage.value = newPage
+
+const fetchSearchResult = async (column, keyword, pageNum) => {
+  loading.value = true
+  try {
+    let response
+    if (!keyword) {
+      response = await nutritionApi.searchNutritions(null, null, pageNum, pageSize.value)
+    } else if (column === 'category') {
+      response = await nutritionApi.searchNutritions(null, keyword, pageNum, pageSize.value)
+    } else {
+      response = await nutritionApi.searchNutritions(keyword, null, pageNum, pageSize.value)
+    }
+    nutritionData.value = response
+  } catch (error) {
+    nutritionData.value = { content: [], totalElements: 0, totalPages: 0 }
+  } finally {
+    loading.value = false
+  }
 }
+
+const onSearch = async ({ column, keyword }) => {
+  // 검색 버튼 클릭 시 항상 첫 페이지로 이동
+  page.value = 0
+  searchState.value = { column, keyword }
+  await fetchSearchResult(column, keyword, page.value)
+}
+
+const onPageChange = async (newPage) => {
+  page.value = newPage
+  const { column, keyword } = searchState.value
+  // 둘 다 null/빈값이면 전체 검색, 아니면 현재 옵션 유지
+  if ((!keyword || keyword === '') && (!column || column === '')) {
+    await fetchSearchResult('name', '', page.value)
+  } else {
+    await fetchSearchResult(column, keyword, page.value)
+  }
+}
+
+const onSelect = (row) => {
+  console.log('NutritionSearchModal - 선택된 음식 데이터:', row)
+  console.log('NutritionSearchModal - 현재 amount 값:', props.amount)
+  const foodData = { ...row, amount: props.amount }
+  console.log('NutritionSearchModal - 전송할 데이터:', foodData)
+  
+  // store에 데이터 저장
+  calendarStore.selectedFood = foodData
+  console.log('NutritionSearchModal - store 업데이트 완료')
+  
+  closeModal()
+}
+
+// 모달이 열릴 때마다 전체 목록 조회
+watch(() => props.show, (newVal) => {
+  if (newVal) {
+    onSearch({ column: 'name', keyword: '' })
+  }
+})
+
 function closeModal() {
   emit('update:show', false)
   calendarStore.closeNutritionModal()
 }
+
+onMounted(() => {
+  onSearch({ column: 'name', keyword: '' })
+})
 </script>
+
+<style scoped>
+.nutrition-list-modal {
+  padding: 1rem 0.5rem;
+}
+</style>
+
+
