@@ -85,6 +85,7 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(error)
       }
 
+      // 이미 토큰 재발급 중이면 대기
       if (isRefreshing) {
         return new Promise(resolve => {
           addRefreshSubscriber(() => {
@@ -93,16 +94,25 @@ axiosInstance.interceptors.response.use(
         })
       }
 
+      // 최대 재시도 횟수 초과 시 로그아웃
+      if (refreshRetryCount >= MAX_REFRESH_RETRY) {
+        console.error('토큰 재발급 최대 재시도 횟수 초과')
+        isLoggingOut = true
+        authStore._isLoggedIn.value = false
+        authStore.user.value = null
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
       originalRequest._retry = true
       isRefreshing = true
+      refreshRetryCount++
 
       try {
         // 토큰 재발급 시도
         console.log('토큰 재발급 시도 - 현재 쿠키:', document.cookie)
         const response = await axiosInstance.post('/auth/reissue', {}, {
-          headers: {
-            'Cookie': document.cookie
-          }
+          withCredentials: true
         })
         console.log('토큰 재발급 응답:', response)
         isRefreshing = false
@@ -113,8 +123,7 @@ axiosInstance.interceptors.response.use(
       } catch (refreshError) {
         console.error('토큰 재발급 실패:', refreshError)
         isRefreshing = false
-        refreshRetryCount++
-
+        
         // 최대 재시도 횟수를 초과한 경우에만 로그아웃
         if (refreshRetryCount >= MAX_REFRESH_RETRY) {
           console.error('토큰 재발급 최대 재시도 횟수 초과')
