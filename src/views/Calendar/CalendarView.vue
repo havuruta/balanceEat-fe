@@ -28,14 +28,9 @@
     <transition name="fade-modal" mode="out-in">
       <DietDetailModal
         v-if="showDetailModal"
-        :show="showDetailModal"
-        :diets="detailDiets"
-        :date="detailDate"
-        :analyze-summary="analyzeSummary"
-        @update:show="showDetailModal = $event"
-        @update="handleUpdateDiet"
-        @delete="handleDeleteDiet"
-        @add="handleAddMeal"
+        :is-open="showDetailModal"
+        :date="selectedDate"
+        @close="showDetailModal = false"
       />
     </transition>
     <BaseModal
@@ -65,18 +60,14 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import BaseModal from '@/components/base/Modal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
-import BaseInput from '@/components/base/BaseInput.vue'
-import BaseSelect from '@/components/base/BaseSelect.vue'
-import BaseSearchTable from '@/components/base/BaseSearchTable.vue'
 import { useCalendarStore } from '@/stores/calendarStore'
 import AddDietModal from './AddDietModal.vue'
 import NutritionSearchModal from './NutritionSearchModal.vue'
-import DietDetailModal from './DietDetailModal.vue'
+import DietDetailModal from '@/views/Calendar/DietDetailModal.vue'
 import NutrientPieChart from './NutrientPieChart.vue'
 import MealTypeConfirmModal from './MealTypeConfirmModal.vue'
 import axiosInstance from '@/utils/axios'
 import { API_ROUTES } from '@/config/api'
-import { useRouter } from 'vue-router'
 
 const calendarStore = useCalendarStore()
 const calendar = ref(null)
@@ -84,24 +75,12 @@ const showAddModal = ref(false)
 const showNutritionModal = ref(false)
 const showDetailModal = ref(false)
 const showEditDeleteModal = ref(false)
-const nutritionSearch = ref('')
-const nutritionResults = ref([])
 const selectedNutrition = ref(null)
-const selectedDiet = ref({})
 const detailDiets = ref([])
-const detailDate = ref('')
 const addMealType = ref('BREAKFAST')
 const showAnalyzeModal = ref(false)
 const analyzeSummary = ref({ protein: 0, fat: 0, carbohydrates: 0 })
-const router = useRouter()
-
-const MEAL_TYPE = {
-  BREAKFAST: { label: '아침', start: '05:00', end: '10:00' },
-  LUNCH: { label: '점심', start: '11:00', end: '15:00' },
-  DINNER: { label: '저녁', start: '17:00', end: '21:00' },
-  SNACK: { label: '간식', start: '10:00', end: '17:00' },
-  NIGHT: { label: '야식', start: '21:00', end: '05:00' }
-}
+const selectedDate = ref(null)
 
 const showMealTypeModal = ref(false)
 const selectedTime = ref('')
@@ -119,138 +98,7 @@ const dietForm = ref({
 // 수정/삭제 관련 상태
 const editDiets = ref([])
 
-const mealTypeOptions = [
-  { value: 'BREAKFAST', label: '아침' },
-  { value: 'LUNCH', label: '점심' },
-  { value: 'DINNER', label: '저녁' },
-]
 
-// 영양정보 표 컬럼 및 옵션
-const nutritionColumns = [
-  { key: 'name', label: '음식명' },
-  { key: 'calories', label: '칼로리' },
-  { key: 'protein', label: '단백질' },
-  { key: 'fat', label: '지방' },
-  { key: 'carbohydrates', label: '탄수화물' },
-  { key: 'category', label: '음식 분류' }
-]
-
-const nutritionSearchOptions = [
-  { value: 'name', label: '음식명' },
-  { value: 'category', label: '음식 분류' }
-]
-
-const nutritionPage = ref(0)
-const nutritionPageSize = ref(10)
-const nutritionSearchState = ref({ column: 'name', keyword: '' })
-
-function handleNutritionSearch({ column, keyword }) {
-  nutritionSearchState.value = { column, keyword }
-  nutritionPage.value = 0
-}
-
-function handleNutritionSelect(id) {
-  const food = nutritionResults.value.find((f) => f.id === id)
-  if (food) {
-    selectedNutrition.value = {
-      id: food.id,
-      name: food.name,
-      calories: food.calories,
-      protein: food.protein,
-      fat: food.fat,
-      carbohydrates: food.carbohydrates,
-      category: food.category,
-    }
-    dietForm.value.foodSearch = food.name
-    showNutritionModal.value = false
-  }
-}
-
-function handleNutritionPageChange(newPage) {
-  nutritionPage.value = newPage
-}
-
-const calculatedNutrition = computed(() => {
-  if (!selectedNutrition.value || !dietForm.value.amount)
-    return {
-      calories: 0,
-      protein: 0,
-      fat: 0,
-      carbohydrates: 0,
-    }
-  const ratio = Number(dietForm.value.amount) / 100
-  return {
-    calories: (selectedNutrition.value.calories * ratio).toFixed(1),
-    protein: (selectedNutrition.value.protein * ratio).toFixed(1),
-    fat: (selectedNutrition.value.fat * ratio).toFixed(1),
-    carbohydrates: (selectedNutrition.value.carbohydrates * ratio).toFixed(1),
-  }
-})
-
-function getRandomMealIcons() {
-  return {
-    breakfast: Math.random() > 0.4 ? '🍳' : '❌',
-    lunch: Math.random() > 0.4 ? '🍚' : '❌',
-    dinner: Math.random() > 0.4 ? '🍖' : '❌',
-  }
-}
-
-function generateFakeEvents() {
-  const events = []
-  for (let d = 1; d <= 15; d++) {
-    const date = `2025-05-${d.toString().padStart(2, '0')}`
-    const icons = getRandomMealIcons()
-    
-    if (icons.breakfast === '🍳') {
-    events.push({
-        title: '🍳 아침',
-        start: `${date}T06:00:00`,
-        end: `${date}T10:00:00`,
-      extendedProps: {
-        summaryDate: date,
-          mealType: 'BREAKFAST',
-          breakfastCalories: 300
-        }
-      })
-    }
-    
-    if (icons.lunch === '🍚') {
-      events.push({
-        title: '🍚 점심',
-        start: `${date}T11:00:00`,
-        end: `${date}T15:00:00`,
-        extendedProps: {
-          summaryDate: date,
-          mealType: 'LUNCH',
-          lunchCalories: 500
-        }
-      })
-    }
-    
-    if (icons.dinner === '🍖') {
-      events.push({
-        title: '🍖 저녁',
-        start: `${date}T17:00:00`,
-        end: `${date}T21:00:00`,
-        extendedProps: {
-          summaryDate: date,
-          mealType: 'DINNER',
-          dinnerCalories: 700
-        }
-    })
-    }
-  }
-  return events
-}
-
-function eventContent(arg) {
-  const title = arg.event.title
-  return {
-    html: `
-      <div class='cell-meal-strip'>${title}</div>
-    `,
-  }
-}
 
 // 캘린더 초기화
 onMounted(() => {
@@ -357,29 +205,9 @@ async function fetchEvents(info, successCallback, failureCallback) {
 }
 
 // 이벤트 클릭 핸들러
-async function handleEventClick(info) {
-  const date = info.event.startStr.split('T')[0]
-  detailDate.value = date
-  
-  try {
-    const response = await axiosInstance.get(`${API_ROUTES.DIET.DETAIL}?date=${date}`)
-    if (response.data) {
-      detailDiets.value = {
-        BREAKFAST: response.data.breakfast || [],
-        LUNCH: response.data.lunch || [],
-        DINNER: response.data.dinner || []
-      }
-      analyzeSummary.value = {
-        protein: response.data.totalProtein || 0,
-        fat: response.data.totalFat || 0,
-        carbohydrates: response.data.totalCarbohydrates || 0
-      }
-      showDetailModal.value = true
-    }
-  } catch (error) {
-    console.error('식단 상세 정보를 불러오는데 실패했습니다:', error)
-    alert('식단 상세 정보를 불러오는데 실패했습니다.')
-  }
+const handleEventClick = (info) => {
+  selectedDate.value = info.event.startStr.split('T')[0]  // 날짜만 추출
+  showDetailModal.value = true
 }
 
 function handleUpdateDiet(editedDiet) {
