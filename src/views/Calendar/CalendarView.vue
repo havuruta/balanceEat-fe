@@ -357,9 +357,29 @@ async function fetchEvents(info, successCallback, failureCallback) {
 }
 
 // 이벤트 클릭 핸들러
-function handleEventClick(info) {
+async function handleEventClick(info) {
   const date = info.event.startStr.split('T')[0]
-  router.push(`/diet/detail?date=${date}`)
+  detailDate.value = date
+  
+  try {
+    const response = await axiosInstance.get(`${API_ROUTES.DIET.DETAIL}?date=${date}`)
+    if (response.data) {
+      detailDiets.value = {
+        BREAKFAST: response.data.breakfast || [],
+        LUNCH: response.data.lunch || [],
+        DINNER: response.data.dinner || []
+      }
+      analyzeSummary.value = {
+        protein: response.data.totalProtein || 0,
+        fat: response.data.totalFat || 0,
+        carbohydrates: response.data.totalCarbohydrates || 0
+      }
+      showDetailModal.value = true
+    }
+  } catch (error) {
+    console.error('식단 상세 정보를 불러오는데 실패했습니다:', error)
+    alert('식단 상세 정보를 불러오는데 실패했습니다.')
+  }
 }
 
 function handleUpdateDiet(editedDiet) {
@@ -541,7 +561,9 @@ function openNutritionModal() {
 }
 
 function refetchEvents() {
-  // 캘린더 이벤트 새로고침 로직
+  if (calendar.value) {
+    calendar.value.refetchEvents()
+  }
 }
 
 function handleAddMeal(mealType) {

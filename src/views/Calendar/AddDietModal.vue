@@ -232,6 +232,8 @@ function addFoodToList() {
   
   const foodToAdd = {
     ...selectedFood.value,
+    nutritionId: selectedFood.value.id,
+    foodName: selectedFood.value.name,
     amount: amount.value,
     note: note.value,
     mealType: currentMealType.value,
@@ -257,6 +259,7 @@ const submitAllFoods = async () => {
     isSubmitting.value = true
     const diets = addedFoods.value.map(food => ({
       nutritionId: food.id,
+      foodName: food.name,
       amount: food.amount.toString(),
       note: food.note || '',
       mealType: food.mealType,
