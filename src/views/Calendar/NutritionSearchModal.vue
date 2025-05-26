@@ -125,20 +125,16 @@ const onSelect = (row) => {
   closeModal()
 }
 
-// 모달이 열릴 때마다 전체 목록 조회
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    onSearch({ column: 'name', keyword: '' })
-  }
-})
-
 function closeModal() {
   emit('update:show', false)
   calendarStore.closeNutritionModal()
 }
 
-onMounted(() => {
-  onSearch({ column: 'name', keyword: '' })
+// 모달이 처음 열릴 때만 API를 호출
+watch(() => props.show, (newValue) => {
+  if (newValue) {
+    fetchNutritions()
+  }
 })
 </script>
 

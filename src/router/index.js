@@ -28,6 +28,12 @@ const routes = [
     children: [{ path: '', component: () => import('@/views/Auth/RegisterView.vue') }],
   },
   {
+    path: '/diet/detail',
+    name: 'DietDetail',
+    component: () => import('@/views/Diet/DietDetailView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     component: () => import('@/views/NotFound/NotFoundView.vue'),
   },

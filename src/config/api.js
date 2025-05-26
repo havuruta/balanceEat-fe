@@ -12,11 +12,13 @@ export const API_ROUTES = {
     UPDATE: '/user/update'
   },
   DIET: {
-    ADD: '/diet/add',
-    UPDATE: '/diet/update',
-    DELETE: '/diet/delete',
-    EDIT: '/diet/edit',
-    SUMMARIES: '/diet/summaries'
+    ADD: '/api/diet/add',
+    BATCH_ADD: '/api/diet/batch-add',
+    UPDATE: '/api/diet/update',
+    DELETE: '/api/diet/delete',
+    EDIT: '/api/diet/edit',
+    SUMMARIES: '/api/diet/summaries',
+    DETAIL: '/api/diet/detail',
   },
   NUTRITION: {
     ALL: '/nutrition/all',
