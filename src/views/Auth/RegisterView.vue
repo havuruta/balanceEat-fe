@@ -69,6 +69,30 @@
             type="number"
             style="margin-top: 1.2rem"
           />
+          <BaseInput
+            label="질병"
+            v-model="diseaseCode"
+            placeholder="질병을 입력하세요"
+            style="margin-top: 1.2rem"
+          />
+          <BaseInput
+            label="식습관"
+            placeholder="식습관을 입력하세요"
+            v-model="dietHabit"
+            style="margin-top: 1.2rem"
+          />
+          <BaseInput
+            label="선호 음식"
+            v-model="foodPreference"
+            placeholder="선호하는 음식을 입력하세요"
+            style="margin-top: 1.2rem"
+          />
+          <BaseInput
+            label="비선호 음식"
+            placeholder="알레르기 음식 등 비선호 음식을 입력하세요"
+            v-model="foodBlacklist"
+            style="margin-top: 1.2rem"
+          />
           <BaseButton
             color="secondary"
             full
@@ -118,6 +142,10 @@ const birthYear = ref('')
 const gender = ref('')
 const weight = ref('')
 const height = ref('')
+const diseaseCode = ref('')
+const foodPreference = ref('')
+const dietHabit = ref('')
+const foodBlacklist = ref('')
 
 // 에러 메시지
 const emailError = ref('')
@@ -180,7 +208,11 @@ async function onRegister() {
         birthYear: parseInt(birthYear.value) || 0,
         gender: gender.value,
         weight: parseInt(weight.value) || 0,
-        height: parseInt(height.value) || 0
+        height: parseInt(height.value) || 0,
+        diseaseCode: diseaseCode.value,
+        foodPreference: foodPreference.value,
+        dietHabit: dietHabit.value,
+        foodBlacklist: foodBlacklist.value
       })
     })
 
