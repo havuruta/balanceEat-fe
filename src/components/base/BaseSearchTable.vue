@@ -26,7 +26,7 @@
         <tr v-for="(row, i) in pagedRows" :key="row.id || i">
           <td v-for="(col, j) in columns" :key="j">
             <template v-if="col.key === 'category'">
-              {{ getCategoryLabel(row[col.key]) }}
+              {{ FoodCategoryLabels[row[col.key]] || row[col.key] }}
             </template>
             <template v-else>
               {{ row[col.key] }}

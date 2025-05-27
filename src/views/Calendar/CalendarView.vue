@@ -503,7 +503,7 @@ function handleMealTypeConfirm(mealType) {
 <style scoped>
 .calendar-view {
   max-width: 1200px;
-  margin: 2.5rem auto 0 auto;
+  margin: 2.5rem auto 4rem auto;
   padding: 0 1rem;
 }
 

@@ -377,7 +377,7 @@ watchEffect(() => {
   background: white;
   border-radius: 12px;
   width: 90%;
-  max-width: 1000px;
+  max-width: 1100px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -386,7 +386,7 @@ watchEffect(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
+  padding: 1rem;
   border-bottom: 1px solid #eee;
 }
 
@@ -399,7 +399,7 @@ watchEffect(() => {
 .close-button {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 2rem;
   cursor: pointer;
   color: #666;
 }
@@ -416,23 +416,22 @@ watchEffect(() => {
 
 .summary-section {
   flex: 1;
+  min-width: 600px;
 }
 
 .summary-section h2 {
   font-size: 1.2rem;
-  margin-bottom: 1rem;
 }
 
 .summary-content {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0.8rem;
-  margin-bottom: 1rem;
 }
 
 .summary-item {
   text-align: center;
-  padding: 0.6rem;
+  padding: 0.2rem;
   background: #f8f9fa;
   border-radius: 6px;
 }
@@ -452,8 +451,6 @@ watchEffect(() => {
 .chart-section {
   background: #f8f9fa;
   border-radius: 6px;
-  padding: 0.8rem;
-  margin-top: 0.8rem;
 }
 
 .meal-section {
@@ -496,7 +493,7 @@ watchEffect(() => {
   display: flex;
   gap: 1rem;
   color: #666;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 .no-meal {
@@ -531,7 +528,7 @@ watchEffect(() => {
 }
 
 .analysis-section {
-  margin-top: 2rem;
+  margin-top: 1rem;
   padding: 1rem;
   background: #f8f9fa;
   border-radius: 8px;

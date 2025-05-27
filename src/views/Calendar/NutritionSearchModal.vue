@@ -69,6 +69,7 @@ const loading = ref(false)
 const fetchNutritions = async () => {
   try {
     const response = await nutritionApi.getAllNutritions(page.value, pageSize.value)
+    console.log('영양 정보 API 응답:', response)
     nutritionData.value = response
   } catch (error) {
     console.error('영양 정보를 불러오는데 실패했습니다:', error)
@@ -86,6 +87,7 @@ const fetchSearchResult = async (column, keyword, pageNum) => {
     } else {
       response = await nutritionApi.searchNutritions(keyword, null, pageNum, pageSize.value)
     }
+    console.log('검색 결과 API 응답:', response)
     nutritionData.value = response
   } catch (error) {
     nutritionData.value = { content: [], totalElements: 0, totalPages: 0 }
