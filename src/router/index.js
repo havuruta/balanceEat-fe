@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import ProfilePage from '@/views/MyPage/ProfilePage.vue'
 
 const routes = [
   {
@@ -11,9 +10,12 @@ const routes = [
       { path: 'nutrition', component: () => import('@/views/Nutrition/NutritionListView.vue') },
       { path: 'calendar', component: () => import('@/views/Calendar/CalendarView.vue') },
       { path: 'challenge', component: () => import('@/views/Challenge/ChallengeView.vue') },
-      {
-        path: 'profile',
-        component: ProfilePage,
+      { path: 'profile',component: () => import('@/views/MyPage/ProfilePage.vue'),
+      { path: 'ai-diet', component: () => import('@/views/AIDietView.vue'), meta: { requiresAuth: true } },
+      { path: 'contact', component: () => import('@/views/Contact/ContactView.vue') },
+      { 
+        path: 'mypage', 
+        component: () => import('@/views/MyPage/MyPageView.vue'),
         meta: { requiresAuth: true }
       },
       {
