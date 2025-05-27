@@ -24,7 +24,18 @@ export const useAuthStore = defineStore('auth', () => {
       if (response.status === 200) {
         console.log('로그인 성공, 상태 변경')
         _isLoggedIn.value = true
-        user.value = response.data.user
+        // 사용자 프로필 정보 가져오기
+        const userProfileBase64 = response.headers['x-user-profile']
+        if (userProfileBase64) {
+          const userProfileJson = new TextDecoder('utf-8').decode(
+            Uint8Array.from(atob(userProfileBase64), c => c.charCodeAt(0))
+          )
+          const userProfile = JSON.parse(userProfileJson)
+          console.log('받은 사용자 프로필 정보:', userProfile)
+          user.value = userProfile
+        } else {
+          console.warn('사용자 프로필 정보가 없습니다.')
+        }
         return true
       }
       return false

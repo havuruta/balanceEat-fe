@@ -106,9 +106,12 @@ async function onLogin() {
   console.log('로그인 시도:', loginId.value)
   const success = await authStore.login(loginId.value, password.value)
   console.log('로그인 결과:', success)
+  console.log('현재 store의 user 정보:', authStore.user)
+  console.log('현재 store의 로그인 상태:', authStore.isLoggedIn)
   
   if (success) {
     console.log('로그인 성공, 홈으로 이동')
+    console.log('localStorage 상태:', localStorage.getItem('auth-store'))
     router.push('/')
   } else {
     loginError.value = '로그인에 실패했습니다.'
