@@ -10,30 +10,20 @@ const routes = [
       { path: 'nutrition', component: () => import('@/views/Nutrition/NutritionListView.vue') },
       { path: 'calendar', component: () => import('@/views/Calendar/CalendarView.vue') },
       { path: 'challenge', component: () => import('@/views/Challenge/ChallengeView.vue') },
-      { path: 'profile',component: () => import('@/views/MyPage/ProfilePage.vue'),
+      { path: 'profile', component: () => import('@/views/MyPage/ProfilePage.vue'), meta: { requiresAuth: true } },
       { path: 'ai-diet', component: () => import('@/views/AIDietView.vue'), meta: { requiresAuth: true } },
-      { path: 'contact', component: () => import('@/views/Contact/ContactView.vue') },
-      { 
-        path: 'mypage', 
-        component: () => import('@/views/MyPage/MyPageView.vue'),
-        meta: { requiresAuth: true }
-      },
-      {
-        path: 'profile/edit',
-        component: () => import('@/views/MyPage/EditProfileView.vue'),
-        meta: { requiresAuth: true }
-      },
-    ],
+      { path: 'contact', component: () => import('@/views/Contact/ContactView.vue') }
+    ]
   },
   {
     path: '/login',
     component: () => import('@/layouts/AuthLayout.vue'),
-    children: [{ path: '', component: () => import('@/views/Auth/LoginView.vue') }],
+    children: [{ path: '', component: () => import('@/views/Auth/LoginView.vue') }]
   },
   {
     path: '/register',
     component: () => import('@/layouts/AuthLayout.vue'),
-    children: [{ path: '', component: () => import('@/views/Auth/RegisterView.vue') }],
+    children: [{ path: '', component: () => import('@/views/Auth/RegisterView.vue') }]
   },
   {
     path: '/diet/detail',
@@ -43,13 +33,13 @@ const routes = [
   },
   {
     path: '/:pathMatch(.*)*',
-    component: () => import('@/views/NotFound/NotFoundView.vue'),
-  },
+    component: () => import('@/views/NotFound/NotFoundView.vue')
+  }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
+  routes
 })
 
 // 네비게이션 가드 추가

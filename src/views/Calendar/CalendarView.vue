@@ -124,7 +124,7 @@ onMounted(() => {
       selectedDate.value = info.dateStr
       try {
         // 해당 날짜의 식단 정보 조회
-        const response = await axiosInstance.get(`/api/diet/detail?date=${selectedDate.value}`)
+        const response = await axiosInstance.get(`/api/diets/detail?date=${selectedDate.value}`)
         const dietData = response.data
         
         // 식단이 하나도 없는 경우
@@ -228,7 +228,7 @@ async function fetchEvents(info, successCallback, failureCallback) {
     const startDate = info.startStr.split('T')[0]  // yyyy-MM-dd 형식으로 변환
     const endDate = info.endStr.split('T')[0]      // yyyy-MM-dd 형식으로 변환
     
-    const response = await axiosInstance.get(API_ROUTES.DIET.SUMMARIES, {
+    const response = await axiosInstance.get('/api/diets/summaries', {
       params: {
         start: startDate,
         end: endDate
@@ -302,13 +302,7 @@ async function submitDiet() {
   }
 
   try {
-    const response = await fetch('/diet/add', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
-    })
+    const response = await axiosInstance.post('/api/diets', formData)
 
     if (response.status === 401) {
       alertMessage.value = '로그인이 필요합니다. 로그인 페이지로 이동합니다.'
@@ -317,12 +311,7 @@ async function submitDiet() {
       return
     }
 
-    if (!response.ok) {
-      throw new Error(await response.text())
-    }
-
-    const result = await response.text()
-    alertMessage.value = result
+    alertMessage.value = '식단이 추가되었습니다.'
     showAlert.value = true
     showAddModal.value = false
     calendar.value.refetchEvents()
@@ -350,13 +339,8 @@ function getMealTypeLabel(type) {
 // 수정/삭제 모달 열기
 async function openEditDeleteModal(date) {
   try {
-    const response = await fetch(`/diet/edit?date=${date}`)
-    if (!response.ok) {
-      throw new Error('Network response was not ok')
-    }
-    const data = await response.json()
-    editDiets.value = Array.isArray(data) ? data : []
-
+    const response = await axiosInstance.get(`/api/diets?date=${date}`)
+    editDiets.value = response.data
     showEditDeleteModal.value = true
   } catch (error) {
     console.error('Error opening edit modal:', error)
@@ -378,7 +362,7 @@ async function updateDiet(dietId) {
   }
 
   try {
-    const response = await fetch(`/diet/update/${dietId}`, {
+    const response = await fetch(`/diets/${dietId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -416,7 +400,7 @@ async function deleteDiet(dietId) {
   }
 
   try {
-    const response = await fetch(`/diet/delete/${dietId}`, {
+    const response = await fetch(`/diets/${dietId}`, {
       method: 'DELETE',
     })
 

@@ -2,18 +2,6 @@
   <div class="profile-page">
     <div v-if="userProfile" class="profile-container">
       <div class="profile-header">
-        <div class="profile-image-section">
-          <img :src="userProfile.profileImageUrl || '/default-profile.png'" alt="프로필 이미지" class="profile-image">
-          <input
-            v-if="isEditing"
-            type="file"
-            @change="handleImageChange"
-            accept="image/*"
-            class="image-input"
-            ref="fileInput"
-          />
-        </div>
-        
         <div class="profile-info-section">
           <div class="profile-row">
             <div class="nickname-challenge-container">
@@ -78,6 +66,13 @@
               class="edit-profile-link"
             >
               비밀번호 변경
+            </button>
+            <button 
+              v-if="!isEditing"
+              @click="showDeleteConfirm" 
+              class="edit-profile-link delete"
+            >
+              회원 탈퇴
             </button>
           </div>
         </div>
@@ -201,8 +196,7 @@
               type="password" 
               v-model="passwordForm.currentPassword"
               required
-              placeholder="현재 비밀번호를 입력하세요"
-            >
+            />
           </div>
           <div class="form-group">
             <label>새 비밀번호</label>
@@ -210,8 +204,7 @@
               type="password" 
               v-model="passwordForm.newPassword"
               required
-              placeholder="새 비밀번호를 입력하세요"
-            >
+            />
           </div>
           <div class="form-group">
             <label>새 비밀번호 확인</label>
@@ -219,41 +212,44 @@
               type="password" 
               v-model="passwordForm.confirmPassword"
               required
-              placeholder="새 비밀번호를 다시 입력하세요"
-            >
+            />
           </div>
-          <div class="modal-buttons">
-            <button type="button" class="cancel-btn" @click="closePasswordModal">
-              취소
-            </button>
-            <button type="submit" class="submit-btn">
-              변경하기
-            </button>
+          <div class="button-group">
+            <button type="submit" class="edit-profile-link">변경</button>
+            <button type="button" @click="showPasswordModal = false" class="edit-profile-link cancel">취소</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- 회원 탈퇴 확인 모달 -->
+    <div v-if="showDeleteModal" class="modal-overlay">
+      <div class="modal-content">
+        <h2>회원 탈퇴</h2>
+        <p class="delete-warning">정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+        <div class="modal-buttons">
+          <button @click="showDeleteModal = false" class="cancel-btn">취소</button>
+          <button @click="handleDeleteAccount" class="delete-btn">탈퇴하기</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAxios } from '@/composables/useAxios'
+import axiosInstance from '@/utils/axios'
 import { useToastStore } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
-import { storeToRefs } from 'pinia'
 
-const axios = useAxios()
 const router = useRouter()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
-const { user } = storeToRefs(authStore)
 
 const userProfile = ref(null)
 const showPasswordModal = ref(false)
 const isEditing = ref(false)
-const fileInput = ref(null)
 
 const passwordForm = ref({
   currentPassword: '',
@@ -262,7 +258,6 @@ const passwordForm = ref({
 })
 
 const editForm = ref({
-  profileImage: null,
   nickname: '',
   goalMessage: '',
   gender: '',
@@ -275,14 +270,10 @@ const editForm = ref({
   foodBlacklist: ''
 })
 
-// 사용자 정보가 store에 있는지 확인하는 computed 속성
-const hasUserData = computed(() => {
-  return user.value && Object.keys(user.value).length > 0
-})
+const showDeleteModal = ref(false)
 
 const initializeEditForm = () => {
   editForm.value = {
-    profileImage: null,
     nickname: userProfile.value.nickname || '',
     goalMessage: userProfile.value.goalMessage || '',
     gender: userProfile.value.gender || '',
@@ -304,11 +295,6 @@ const startEditing = () => {
 
 const cancelEditing = () => {
   isEditing.value = false
-  editForm.value.profileImage = null
-  if (userProfile.value.profileImageUrl && userProfile.value.profileImageUrl.startsWith('blob:')) {
-    URL.revokeObjectURL(userProfile.value.profileImageUrl)
-    userProfile.value.profileImageUrl = userProfile.value.originalProfileImageUrl || '/default-profile.png'
-  }
 }
 
 const handlePasswordModalOpen = () => {
@@ -341,7 +327,7 @@ const handlePasswordChange = async () => {
   }
 
   try {
-    await axios.put('/api/user/password', {
+    await axiosInstance.put('/api/user', {
       currentPassword: passwordForm.value.currentPassword,
       newPassword: passwordForm.value.newPassword
     })
@@ -361,46 +347,18 @@ const handlePasswordChange = async () => {
   }
 }
 
-const handleImageChange = (event) => {
-  const file = event.target.files[0]
-  if (file) {
-    editForm.value.profileImage = file
-    // 원본 이미지 URL 저장
-    if (!userProfile.value.originalProfileImageUrl) {
-      userProfile.value.originalProfileImageUrl = userProfile.value.profileImageUrl
-    }
-    // 미리보기 이미지 설정
-    userProfile.value.profileImageUrl = URL.createObjectURL(file)
-  }
-}
-
 const handleSave = async () => {
   try {
-    const formData = new FormData()
+    const profileDataToSave = { ...editForm.value }
     
-    if (editForm.value.profileImage) {
-      formData.append('profileImage', editForm.value.profileImage)
-    }
+    // 프로필 정보 수정 시 비밀번호 관련 필드는 제거하고 보냄
+    delete profileDataToSave.currentPassword;
+    delete profileDataToSave.newPassword;
+    delete profileDataToSave.confirmPassword;
 
-    const profileData = { ...editForm.value }
-    delete profileData.profileImage
-    formData.append('profileData', JSON.stringify(profileData))
+    const response = await axiosInstance.put('/api/user', profileDataToSave)
 
-    const response = await axios.put('/api/user/profile', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
-    // 프로필 정보 업데이트 (로컬 상태와 store 상태 모두)
-    const updatedProfile = {
-      ...userProfile.value,
-      ...editForm.value,
-      originalProfileImageUrl: undefined
-    }
-    userProfile.value = updatedProfile
-    authStore.user = updatedProfile // store 상태 업데이트
-
+    userProfile.value = response.data
     isEditing.value = false
     toastStore.show({
       title: '성공',
@@ -418,26 +376,12 @@ const handleSave = async () => {
 
 const fetchUserProfile = async () => {
   try {
-    console.log('fetchUserProfile 시작')
-    console.log('현재 store의 user 정보:', user.value)
-    console.log('localStorage 상태:', localStorage.getItem('auth-store'))
-    
-    if (hasUserData.value) {
-      console.log('store에서 데이터 사용')
-      userProfile.value = { ...user.value }
-      return
-    }
-
     console.log('API 호출로 데이터 가져오기')
-    const response = await axios.get('/user/profile')
+    const response = await axiosInstance.get('/api/user')
     console.log('프로필 API 응답:', response.data)
     
     if (response.status === 200) {
-      const profileData = response.data
-      userProfile.value = profileData
-      // store 상태 업데이트
-      authStore.user = profileData
-      console.log('프로필 데이터 업데이트 완료:', userProfile.value)
+      userProfile.value = response.data
     }
   } catch (error) {
     console.error('프로필 조회 실패:', error)
@@ -464,12 +408,9 @@ const calculateAge = (birthYear) => {
 
 const handleChallengeToggle = async () => {
   try {
-    await axios.put('/api/user/challenge-status', {
+    await axiosInstance.put('/api/user', {
       isChallengeEnabled: userProfile.value.isChallengeEnabled
     })
-    
-    // store의 상태도 함께 업데이트
-    authStore.user.isChallengeEnabled = userProfile.value.isChallengeEnabled
     
     toastStore.show({
       title: '성공',
@@ -477,10 +418,7 @@ const handleChallengeToggle = async () => {
       type: 'success'
     })
   } catch (error) {
-    // 실패 시 토글 상태를 원래대로 되돌림
     userProfile.value.isChallengeEnabled = !userProfile.value.isChallengeEnabled
-    // store의 상태도 원래대로 복구
-    authStore.user.isChallengeEnabled = !authStore.user.isChallengeEnabled
     
     toastStore.show({
       title: '오류',
@@ -490,18 +428,30 @@ const handleChallengeToggle = async () => {
   }
 }
 
-// computed 속성 추가
-const isProfileLoaded = computed(() => {
-  return userProfile.value !== null
-})
+const showDeleteConfirm = () => {
+  showDeleteModal.value = true
+}
 
-// watch 추가
-watch(user, (newValue) => {
-  console.log('store의 user 정보 변경:', newValue)
-  if (newValue && !userProfile.value) {
-    userProfile.value = { ...newValue }
+const handleDeleteAccount = async () => {
+  try {
+    await axiosInstance.delete('/api/user')
+    toastStore.show({
+      title: '성공',
+      message: '회원 탈퇴가 완료되었습니다.',
+      type: 'success'
+    })
+    localStorage.removeItem('token')
+    router.push('/login')
+  } catch (error) {
+    toastStore.show({
+      title: '오류',
+      message: '회원 탈퇴 처리 중 오류가 발생했습니다.',
+      type: 'error'
+    })
+  } finally {
+    showDeleteModal.value = false
   }
-})
+}
 
 onMounted(() => {
   console.log('ProfilePage 마운트됨')
@@ -528,22 +478,6 @@ onMounted(() => {
   gap: 2rem;
   margin-bottom: 2rem;
   align-items: flex-start;
-}
-
-.profile-image-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  position: relative;
-  cursor: pointer;
-}
-
-.profile-image {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  object-fit: cover;
 }
 
 .profile-info-section {
@@ -611,12 +545,39 @@ onMounted(() => {
   color: white;
 }
 
-/* 스위치 버튼 스타일 */
+.edit-profile-link.cancel {
+  border-color: #666;
+  color: #666;
+}
+
+.edit-profile-link.cancel:hover {
+  background: #666;
+  color: white;
+}
+
+.edit-profile-link.delete {
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.edit-profile-link.delete:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  justify-content: flex-start;
+}
+
 .switch {
   position: relative;
   display: inline-block;
   width: 48px;
   height: 24px;
+  flex-shrink: 0;
 }
 
 .switch input {
@@ -661,13 +622,6 @@ input:checked + .slider:before {
   text-align: center;
   color: #666;
   padding: 2rem;
-}
-
-.button-group {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  justify-content: flex-start;
 }
 
 .modal-overlay {
@@ -784,31 +738,20 @@ input:checked + .slider:before {
   font-size: 1rem;
 }
 
-.image-input {
-  display: none;
-}
-
-.profile-image-section:hover::after {
-  content: "이미지 변경";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  padding: 0.5rem;
+.delete-warning {
+  color: #dc3545;
   text-align: center;
-  border-bottom-left-radius: 50%;
-  border-bottom-right-radius: 50%;
+  margin: 1rem 0;
+  font-weight: 500;
 }
 
-.edit-profile-link.cancel {
-  border-color: #666;
-  color: #666;
-}
-
-.edit-profile-link.cancel:hover {
-  background: #666;
+.delete-btn {
+  background: #dc3545;
   color: white;
+  border: 1px solid #dc3545;
+}
+
+.delete-btn:hover {
+  background: #c82333;
 }
 </style> 

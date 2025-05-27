@@ -214,8 +214,8 @@ const fetchDietData = async () => {
   console.log('[fetchDietData] API 요청 시작:', date.value)
   try {
     const [detailResponse, summariesResponse] = await Promise.all([
-      axiosInstance.get(`/api/diet/detail?date=${date.value}`),
-      axiosInstance.get(`/api/diet/summaries?start=${date.value}&end=${date.value}`)
+      axiosInstance.get(`/api/diets/detail?date=${date.value}`),
+      axiosInstance.get(`/api/diets/summaries?start=${date.value}&end=${date.value}`)
     ])
     console.log('[fetchDietData] API 응답:', {
       detail: detailResponse.data,
@@ -272,7 +272,7 @@ function confirmEdit() {
 
 async function updateDiet(dietId, amount) {
   try {
-    await axiosInstance.put(`/api/diet/update/${dietId}`, {
+    await axiosInstance.put(`/api/diets/${dietId}`, {
       amount: amount
     })
     await fetchDietData() // 데이터 새로고침
@@ -297,7 +297,7 @@ function deleteDiet(diet) {
 function confirmDelete() {
   if (dietToDelete.value) {
     const dietId = dietToDelete.value.id
-    axiosInstance.delete(`/api/diet/delete/${dietId}`)
+    axiosInstance.delete(`/api/diets/${dietId}`)
       .then(() => {
         fetchDietData() // 데이터 새로고침
         emit('refresh') // 부모 컴포넌트에 변경사항 알림
