@@ -10,11 +10,11 @@
       <li><router-link to="/" exact-active-class="active" exact>메인</router-link></li>
       <li><router-link to="/nutrition" exact-active-class="active">영양 정보 조회</router-link></li>
       <li><router-link to="/calendar" exact-active-class="active">나의 식단 달력</router-link></li>
-      <li><router-link to="/contact" exact-active-class="active">Contact</router-link></li>
+      <li><router-link to="/challenge" exact-active-class="active">챌린지</router-link></li>
     </ul>
     <div class="navbar__auth">
       <template v-if="isLoggedIn">
-        <router-link to="/mypage">
+        <router-link to="/profile">
           <NavbarButton color="secondary">마이페이지</NavbarButton>
         </router-link>
         <NavbarButton color="danger" @click="handleLogout">로그아웃</NavbarButton>
