@@ -55,12 +55,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function reissueToken() {
     try {
-      const response = await axiosInstance.post(API_ROUTES.AUTH.REISSUE)
-      if (response.status === 200) {
-        _isLoggedIn.value = true
-        return true
-      }
-      return false
+      await axiosInstance.post(API_ROUTES.AUTH.REISSUE)
+      _isLoggedIn.value = true
+      return true
     } catch (error) {
       console.error('토큰 재발급 실패:', error)
       _isLoggedIn.value = false

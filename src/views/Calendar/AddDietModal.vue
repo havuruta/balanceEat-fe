@@ -115,6 +115,21 @@
     @update:show="showNutritionSearch = $event"
     :amount="amount"
   />
+  <BaseModal :model-value="showAlert" @close="showAlert = false" :style="{ zIndex: 99999 }">
+    <div class="modal-body">
+      <p>{{ alertMessage }}</p>
+      <BaseButton color="primary" @click="showAlert = false">확인</BaseButton>
+    </div>
+  </BaseModal>
+  <BaseModal :model-value="showDeleteConfirm" @close="showDeleteConfirm = false" :style="{ zIndex: 99999 }">
+    <div class="modal-body">
+      <p>정말로 이 음식을 삭제하시겠습니까?</p>
+      <div class="modal-actions">
+        <BaseButton color="secondary" @click="showDeleteConfirm = false">취소</BaseButton>
+        <BaseButton color="danger" @click="confirmDelete">삭제</BaseButton>
+      </div>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup>
@@ -141,7 +156,7 @@ const props = defineProps({
   show: Boolean,
   selectedNutrition: Object,
   mealType: String,
-  initialDate: {
+  date: {
     type: String,
     default: () => new Date().toISOString().split('T')[0]
   }
@@ -156,11 +171,15 @@ const foodSearch = ref('')
 const amount = ref(100)
 const note = ref('')
 const selectedTime = ref(new Date().toTimeString().slice(0, 5))
-const selectedDate = ref(props.initialDate)
+const selectedDate = ref(props.date)
 const currentMealType = ref(props.mealType)
 const isSubmitting = ref(false)
 const addedFoods = ref([])
 const showNutritionSearch = ref(false)
+const showAlert = ref(false)
+const alertMessage = ref('')
+const showDeleteConfirm = ref(false)
+const foodToDelete = ref(null)
 
 // 모달 닫기 처리
 function handleModalClose() {
@@ -224,9 +243,8 @@ function addFoodToList() {
   console.log('[addFoodToList] 시작 - note:', note.value)
   
   if (!selectedFood.value || !amount.value || amount.value <= 0) {
-    console.log('[addFoodToList] 유효성 검사 실패 - selectedFood:', selectedFood.value)
-    console.log('[addFoodToList] 유효성 검사 실패 - amount:', amount.value)
-    alert('음식명과 섭취량을 올바르게 입력하세요.')
+    alertMessage.value = '음식명과 섭취량을 올바르게 입력하세요.'
+    showAlert.value = true
     return
   }
   
@@ -249,7 +267,16 @@ function addFoodToList() {
 }
 
 function removeFood(idx) {
-  addedFoods.value.splice(idx, 1)
+  foodToDelete.value = idx
+  showDeleteConfirm.value = true
+}
+
+function confirmDelete() {
+  if (foodToDelete.value !== null) {
+    addedFoods.value.splice(foodToDelete.value, 1)
+    showDeleteConfirm.value = false
+    foodToDelete.value = null
+  }
 }
 
 const submitAllFoods = async () => {
@@ -270,14 +297,16 @@ const submitAllFoods = async () => {
     const response = await axiosInstance.post(API_ROUTES.DIET.BATCH_ADD, { diets })
     
     if (response.status === 200) {
-      alert('식단이 성공적으로 등록되었습니다.')
+      alertMessage.value = '식단이 성공적으로 등록되었습니다.'
+      showAlert.value = true
       addedFoods.value = []
       emit('refresh')
       handleModalClose()
     }
   } catch (error) {
     console.error('식단 등록 중 오류 발생:', error)
-    alert(error.response?.data || '식단 등록 중 오류가 발생했습니다.')
+    alertMessage.value = error.response?.data || '식단 등록 중 오류가 발생했습니다.'
+    showAlert.value = true
   } finally {
     isSubmitting.value = false
   }
@@ -336,7 +365,7 @@ function handleTimeChange() {
   }
 }
 
-watch(() => props.initialDate, (newDate) => {
+watch(() => props.date, (newDate) => {
   selectedDate.value = newDate
 })
 
@@ -561,5 +590,11 @@ nutrition-preview {
 .nutrition-table th {
   background: #e9ecef;
   font-weight: bold;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 </style>
