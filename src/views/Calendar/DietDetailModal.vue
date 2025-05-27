@@ -135,12 +135,36 @@
       </div>
     </div>
   </div>
+
+  <!-- 삭제 확인 모달 -->
+  <BaseModal :model-value="showDeleteConfirm" @close="showDeleteConfirm = false" :style="{ zIndex: 99999 }">
+    <div class="modal-body">
+      <p>정말로 이 음식을 삭제하시겠습니까?</p>
+      <div class="modal-actions">
+        <BaseButton color="secondary" @click="showDeleteConfirm = false">취소</BaseButton>
+        <BaseButton color="danger" @click="confirmDelete">삭제</BaseButton>
+      </div>
+    </div>
+  </BaseModal>
+
+  <!-- 수정 확인 모달 -->
+  <BaseModal :model-value="showEditConfirm" @close="showEditConfirm = false" :style="{ zIndex: 99999 }">
+    <div class="modal-body">
+      <p>섭취량을 {{ editingAmount }}g로 수정하시겠습니까?</p>
+      <div class="modal-actions">
+        <BaseButton color="secondary" @click="showEditConfirm = false">취소</BaseButton>
+        <BaseButton color="primary" @click="confirmEdit">수정</BaseButton>
+      </div>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup>
 import { ref, toRefs, watch, watchEffect } from 'vue'
 import axiosInstance from '@/utils/axios'
 import NutrientPieChart from '@/views/Calendar/NutrientPieChart.vue'
+import BaseModal from '@/components/base/Modal.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -217,36 +241,73 @@ const fetchDietData = async () => {
   }
 }
 
-const startEdit = (diet) => {
+const showDeleteConfirm = ref(false)
+const showEditConfirm = ref(false)
+const dietToDelete = ref(null)
+const dietToEdit = ref(null)
+
+function startEdit(diet) {
   editingId.value = diet.id
   editingAmount.value = diet.amount
+  dietToEdit.value = diet
 }
 
-const cancelEdit = () => {
-  editingId.value = null
-  editingAmount.value = ''
+function saveEdit(diet) {
+  showEditConfirm.value = true
 }
 
-const saveEdit = async (diet) => {
-  try {
-    await axiosInstance.put(`/api/diet/update/${diet.id}`, {
-      amount: editingAmount.value
-    })
+function confirmEdit() {
+  if (dietToEdit.value && editingAmount.value) {
+    const diet = dietToEdit.value
+    const amount = parseInt(editingAmount.value)
+    if (amount > 0) {
+      updateDiet(diet.id, amount)
+    }
+    showEditConfirm.value = false
     editingId.value = null
     editingAmount.value = ''
-    fetchDietData()
-  } catch (e) {
-    alert('수정 실패')
+    dietToEdit.value = null
   }
 }
 
-const deleteDiet = async (diet) => {
-  if (!confirm('정말 삭제하시겠습니까?')) return
+async function updateDiet(dietId, amount) {
   try {
-    await axiosInstance.delete(`/api/diet/delete/${diet.id}`)
-    fetchDietData()
-  } catch (e) {
-    alert('삭제 실패')
+    await axiosInstance.put(`/api/diet/update/${dietId}`, {
+      amount: amount
+    })
+    await fetchDietData() // 데이터 새로고침
+    emit('refresh') // 부모 컴포넌트에 변경사항 알림
+  } catch (error) {
+    console.error('Error updating diet:', error)
+    alert('식단 수정 중 오류가 발생했습니다.')
+  }
+}
+
+function cancelEdit() {
+  editingId.value = null
+  editingAmount.value = ''
+  dietToEdit.value = null
+}
+
+function deleteDiet(diet) {
+  dietToDelete.value = diet
+  showDeleteConfirm.value = true
+}
+
+function confirmDelete() {
+  if (dietToDelete.value) {
+    const dietId = dietToDelete.value.id
+    axiosInstance.delete(`/api/diet/delete/${dietId}`)
+      .then(() => {
+        fetchDietData() // 데이터 새로고침
+        emit('refresh') // 부모 컴포넌트에 변경사항 알림
+      })
+      .catch(error => {
+        console.error('Error deleting diet:', error)
+        alert('식단 삭제 중 오류가 발생했습니다.')
+      })
+    showDeleteConfirm.value = false
+    dietToDelete.value = null
   }
 }
 
@@ -624,5 +685,12 @@ watchEffect(() => {
   margin: 0;
   line-height: 1.6;
   color: #333;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 </style> 

@@ -1,4 +1,10 @@
 <template>
+  <BaseModal :model-value="showAlert" @close="showAlert = false" :style="{ zIndex: 99999 }">
+    <div class="modal-body">
+      <p>{{ alertMessage }}</p>
+      <BaseButton color="primary" @click="showAlert = false">확인</BaseButton>
+    </div>
+  </BaseModal>
   <div class="calendar-view">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2>식단 달력</h2>
@@ -21,6 +27,7 @@
       :date="selectedDate"
       @update:show="showAddModal = $event"
       @refresh="refetchEvents"
+      :style="{ zIndex: 9999 }"
     />
     <NutritionSearchModal
       :show="calendarStore.showNutritionModal"
@@ -87,6 +94,9 @@ const showMealTypeModal = ref(false)
 const selectedTime = ref('')
 const suggestedMealType = ref('')
 
+const showAlert = ref(false)
+const alertMessage = ref('')
+
 // 식단 추가 폼
 const dietForm = ref({
   date: new Date().toISOString().split('T')[0],
@@ -98,8 +108,6 @@ const dietForm = ref({
 
 // 수정/삭제 관련 상태
 const editDiets = ref([])
-
-
 
 // 캘린더 초기화
 onMounted(() => {
@@ -265,12 +273,14 @@ function handleDeleteDiet(diet) {
 // 식단 추가
 async function submitDiet() {
   if (!selectedNutrition.value) {
-    alert('음식을 선택해주세요.')
+    alertMessage.value = '음식을 선택해주세요.'
+    showAlert.value = true
     return
   }
 
   if (!dietForm.value.amount || dietForm.value.amount <= 0) {
-    alert('올바른 양을 입력해주세요.')
+    alertMessage.value = '올바른 양을 입력해주세요.'
+    showAlert.value = true
     return
   }
 
@@ -301,7 +311,8 @@ async function submitDiet() {
     })
 
     if (response.status === 401) {
-      alert('로그인이 필요합니다. 로그인 페이지로 이동합니다.')
+      alertMessage.value = '로그인이 필요합니다. 로그인 페이지로 이동합니다.'
+      showAlert.value = true
       window.location.href = '/auth/login'
       return
     }
@@ -311,13 +322,14 @@ async function submitDiet() {
     }
 
     const result = await response.text()
-    alert(result)
-
+    alertMessage.value = result
+    showAlert.value = true
     showAddModal.value = false
     calendar.value.refetchEvents()
   } catch (error) {
     console.error('Error submitting diet:', error)
-    alert(error.message || '식단 추가 중 오류가 발생했습니다.')
+    alertMessage.value = error.message || '식단 추가 중 오류가 발생했습니다.'
+    showAlert.value = true
   }
 }
 
@@ -348,7 +360,8 @@ async function openEditDeleteModal(date) {
     showEditDeleteModal.value = true
   } catch (error) {
     console.error('Error opening edit modal:', error)
-    alert('식단 정보를 불러오는 중 오류가 발생했습니다.')
+    alertMessage.value = '식단 정보를 불러오는 중 오류가 발생했습니다.'
+    showAlert.value = true
   }
 }
 
@@ -359,7 +372,8 @@ async function updateDiet(dietId) {
 
   const amount = document.getElementById(`amount_${dietId}`).value
   if (!amount || isNaN(amount) || amount <= 0) {
-    alert('올바른 양을 입력해주세요.')
+    alertMessage.value = '올바른 양을 입력해주세요.'
+    showAlert.value = true
     return
   }
 
@@ -377,7 +391,8 @@ async function updateDiet(dietId) {
     }
 
     const result = await response.text()
-    alert(result)
+    alertMessage.value = result
+    showAlert.value = true
 
     // 캘린더 새로고침
     calendar.value.refetchEvents()
@@ -389,7 +404,8 @@ async function updateDiet(dietId) {
     openEditDeleteModal(currentDate)
   } catch (error) {
     console.error('Error updating diet:', error)
-    alert(error.message || '식단 수정 중 오류가 발생했습니다.')
+    alertMessage.value = error.message || '식단 수정 중 오류가 발생했습니다.'
+    showAlert.value = true
   }
 }
 
@@ -409,7 +425,8 @@ async function deleteDiet(dietId) {
     }
 
     const result = await response.text()
-    alert(result)
+    alertMessage.value = result
+    showAlert.value = true
 
     // 캘린더 새로고침
     calendar.value.refetchEvents()
@@ -421,7 +438,8 @@ async function deleteDiet(dietId) {
     openEditDeleteModal(currentDate)
   } catch (error) {
     console.error('Error deleting diet:', error)
-    alert(error.message || '식단 삭제 중 오류가 발생했습니다.')
+    alertMessage.value = error.message || '식단 삭제 중 오류가 발생했습니다.'
+    showAlert.value = true
   }
 }
 
