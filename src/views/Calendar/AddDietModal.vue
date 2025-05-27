@@ -141,7 +141,7 @@ const props = defineProps({
   show: Boolean,
   selectedNutrition: Object,
   mealType: String,
-  initialDate: {
+  date: {
     type: String,
     default: () => new Date().toISOString().split('T')[0]
   }
@@ -156,7 +156,7 @@ const foodSearch = ref('')
 const amount = ref(100)
 const note = ref('')
 const selectedTime = ref(new Date().toTimeString().slice(0, 5))
-const selectedDate = ref(props.initialDate)
+const selectedDate = ref(props.date)
 const currentMealType = ref(props.mealType)
 const isSubmitting = ref(false)
 const addedFoods = ref([])
@@ -336,7 +336,7 @@ function handleTimeChange() {
   }
 }
 
-watch(() => props.initialDate, (newDate) => {
+watch(() => props.date, (newDate) => {
   selectedDate.value = newDate
 })
 

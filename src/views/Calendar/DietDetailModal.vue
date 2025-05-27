@@ -62,6 +62,75 @@
               carbohydrates: dietSummary.totalCarbohydrates
             }" />
           </div>
+          <div class="analysis-section">
+            <h2>식단 분석 결과</h2>
+            <div class="analysis-content">
+              <button 
+                class="analyze-btn" 
+                @click="analyzeDiet" 
+                :disabled="isAnalyzing || analysisResult"
+                :class="{ analyzing: isAnalyzing, analyzed: analysisResult }"
+              >
+                {{ isAnalyzing ? '분석 중...' : analysisResult ? '분석 완료' : '식단 분석하기' }}
+              </button>
+              <div v-if="analysisResult" class="analysis-result">
+                <div class="score-section">
+                  <h3>점수</h3>
+                  <div class="score">{{ analysisResult.score }}점</div>
+                </div>
+                <div class="feedback-section">
+                  <h3>피드백</h3>
+                  <p>{{ analysisResult.feedback }}</p>
+                </div>
+                <button 
+                  class="detail-report-btn" 
+                  @click="showDetailReport = true"
+                >
+                  자세한 분석 리포트 보기
+                </button>
+              </div>
+              <div v-else-if="!isAnalyzing" class="no-analysis">
+                아직 분석된 결과가 없습니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상세 분석 리포트 모달 -->
+  <div v-if="showDetailReport" class="modal-overlay" @click="showDetailReport = false">
+    <div class="modal-content report-modal" @click.stop>
+      <div class="modal-header">
+        <h2>상세 분석 리포트</h2>
+        <button class="close-button" @click="showDetailReport = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="report-section">
+          <div class="calorie-analysis-section">
+            <h3>칼로리 분석</h3>
+            <p>{{ analysisResult.calorieAnalysis }}</p>
+          </div>
+          <div class="nutrient-analysis-section">
+            <h3>영양소 분석</h3>
+            <p>{{ analysisResult.nutrientAnalysis }}</p>
+          </div>
+          <div class="suggestions-section">
+            <h3>개선 제안</h3>
+            <div class="suggestion-item">
+              <span class="suggestion-number">1</span>
+              <p>{{ analysisResult.suggestions1 }}</p>
+            </div>
+            <div class="suggestion-item">
+              <span class="suggestion-number">2</span>
+              <p>{{ analysisResult.suggestions2 }}</p>
+            </div>
+            <div class="suggestion-item">
+              <span class="suggestion-number">3</span>
+              <p>{{ analysisResult.suggestions3 }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -78,7 +147,7 @@ const props = defineProps({
   date: String
 })
 const { isOpen, date } = toRefs(props)
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'refresh'])
 
 const diets = ref([])
 const dietSummary = ref({
@@ -110,6 +179,7 @@ const formatDate = (dateString) => {
 
 const closeModal = () => {
   emit('close')
+  emit('refresh')
 }
 
 const fetchDietData = async () => {
@@ -180,10 +250,50 @@ const deleteDiet = async (diet) => {
   }
 }
 
+const isAnalyzing = ref(false)
+const analysisResult = ref(null)
+const showDetailReport = ref(false)
+
+const checkAnalysisResult = async () => {
+  try {
+    const response = await axiosInstance.get(`/api/diet-score?date=${date.value}`);
+    if (response.data) {
+      analysisResult.value = response.data;
+    }
+  } catch (error) {
+    console.error('식단 분석 결과 조회 중 오류 발생:', error);
+  }
+};
+
+const analyzeDiet = async () => {
+  if (isAnalyzing.value) return;
+  
+  try {
+    isAnalyzing.value = true;
+    const response = await axiosInstance.get(`/api/chat?date=${date.value}`);
+    analysisResult.value = response.data;
+    // 분석 완료 후 데이터 새로고침
+    await Promise.all([
+      fetchDietData(),
+      checkAnalysisResult()
+    ]);
+  } catch (error) {
+    console.error('식단 분석 중 오류 발생:', error);
+    if (error.response?.status === 429) {
+      alert('잠시 후 다시 시도해주세요. (요청 제한 초과)');
+    } else {
+      alert('식단 분석 중 오류가 발생했습니다.');
+    }
+  } finally {
+    isAnalyzing.value = false;
+  }
+};
+
 watchEffect(() => {
   console.log('[watchEffect] 상태 변경:', { isOpen: isOpen.value, date: date.value })
   if (isOpen.value && date.value) {
     fetchDietData()
+    checkAnalysisResult()
   }
 })
 </script>
@@ -357,5 +467,162 @@ watchEffect(() => {
 
 .edit-btn:hover, .delete-btn:hover, .cancel-btn:hover {
   background: #f0f4fa;
+}
+
+.analysis-section {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.analysis-section h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.analyze-btn {
+  width: 100%;
+  padding: 0.8rem;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.analyze-btn:hover:not(:disabled) {
+  background-color: #357abd;
+}
+
+.analyze-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.analyze-btn.analyzing {
+  background-color: #ff9800;
+}
+
+.analyze-btn.analyzed {
+  background-color: #2196F3;
+}
+
+.analysis-result {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.score-section {
+  margin-bottom: 1rem;
+}
+
+.score-section h3,
+.feedback-section h3 {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.score {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #4a90e2;
+}
+
+.feedback-section p {
+  color: #333;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.no-analysis {
+  text-align: center;
+  color: #999;
+  padding: 1rem;
+  font-style: italic;
+}
+
+.detail-report-btn {
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.detail-report-btn:hover {
+  background-color: #357abd;
+}
+
+.report-modal {
+  max-width: 800px;
+  max-height: 80vh;
+}
+
+.report-section {
+  padding: 1rem;
+}
+
+.report-section h3 {
+  color: #333;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #4a90e2;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.suggestion-number {
+  background: #4a90e2;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.suggestion-item p {
+  margin: 0;
+  line-height: 1.5;
+  color: #333;
+}
+
+.calorie-analysis-section,
+.nutrient-analysis-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.calorie-analysis-section p,
+.nutrient-analysis-section p {
+  margin: 0;
+  line-height: 1.6;
+  color: #333;
 }
 </style> 

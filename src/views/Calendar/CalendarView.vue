@@ -18,6 +18,7 @@
       :show="showAddModal"
       :selectedNutrition="calendarStore.selectedNutrition"
       :mealType="addMealType"
+      :date="selectedDate"
       @update:show="showAddModal = $event"
       @refresh="refetchEvents"
     />
@@ -111,6 +112,36 @@ onMounted(() => {
       center: 'title',
       right: 'dayGridMonth,timeGridWeek,timeGridDay',
     },
+    dateClick: async (info) => {
+      selectedDate.value = info.dateStr
+      try {
+        // 해당 날짜의 식단 정보 조회
+        const response = await axiosInstance.get(`/api/diet/detail?date=${selectedDate.value}`)
+        const dietData = response.data
+        
+        // 식단이 하나도 없는 경우
+        if (!dietData.breakfast?.length && 
+            !dietData.lunch?.length && 
+            !dietData.dinner?.length && 
+            !dietData.snack?.length && 
+            !dietData.night?.length) {
+          // 식단 추가 모달 열기
+          addMealType.value = 'BREAKFAST'
+          dietForm.value.date = selectedDate.value  // 선택된 날짜로 설정
+          showAddModal.value = true
+          return
+        }
+        
+        // 식단이 있는 경우 상세 모달 열기
+        showDetailModal.value = true
+      } catch (error) {
+        console.error('식단 정보 조회 중 오류 발생:', error)
+        // 에러 발생 시에도 식단 추가 모달 열기
+        addMealType.value = 'BREAKFAST'
+        dietForm.value.date = selectedDate.value  // 선택된 날짜로 설정
+        showAddModal.value = true
+      }
+    },
     views: {
       dayGridMonth: {
         dayMaxEventRows: 3,
@@ -123,6 +154,17 @@ onMounted(() => {
           if (summary.dinnerCalories > 0) meals.push('🍖')
           if (summary.snackCalories > 0) meals.push('🍪')
           if (summary.nightCalories > 0) meals.push('🌙')
+          
+          // 식단이 하나도 없는 경우
+          if (meals.length === 0) {
+            return {
+              html: `
+                <div class='cell-meal-strip empty-meal'>
+                  ❌
+                </div>
+              `
+            }
+          }
           
           return {
             html: `
@@ -458,9 +500,9 @@ h2 {
 #calendar {
   margin-top: 2rem;
   background: #fff !important;
-  padding: 1.5rem 1rem 2rem 1rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  padding: 2rem;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   min-height: 800px;
 }
 
@@ -472,39 +514,50 @@ h2 {
 :deep(.fc-daygrid-day),
 :deep(.fc-daygrid-day-frame) {
   background: transparent !important;
+  min-height: 120px !important;
+  transition: all 0.2s ease;
+}
+
+:deep(.fc-daygrid-day:hover) {
+  background: #f8fafc !important;
+  transform: scale(1.02);
+  z-index: 1;
 }
 
 :deep(.fc-daygrid-day-top) {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  justify-content: center;
 }
 
 :deep(.fc-daygrid-day-number) {
   font-size: 1.1rem;
   font-weight: 600;
+  color: #4a5568;
+  padding: 8px;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
-:deep(.fc-timegrid-slot) {
-  height: 4.5em !important;
-}
-
-:deep(.fc-timegrid-col) {
-  min-height: 120px !important;
-}
-
-:deep(.fc-timegrid-slot-label) {
-  font-size: 0.95rem;
-  color: #888;
+:deep(.fc-daygrid-day:hover .fc-daygrid-day-number) {
+  background: #4a90e2;
+  color: white;
 }
 
 :deep(.fc-toolbar) {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 :deep(.fc-toolbar-title) {
-  font-size: 1.7rem !important;
+  font-size: 1.8rem !important;
   font-weight: 700;
-  color: #222;
+  color: #1a202c;
   letter-spacing: -1px;
 }
 
@@ -513,23 +566,25 @@ h2 {
   border: none !important;
   color: #fff !important;
   font-weight: 600;
-  padding: 0.5rem 1.2rem;
-  border-radius: 8px !important;
-  margin: 0 0.2rem;
-  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.08);
-  transition: background 0.2s;
+  padding: 0.8rem 1.5rem;
+  border-radius: 12px !important;
+  margin: 0 0.3rem;
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.15);
+  transition: all 0.3s ease;
 }
 
 :deep(.fc-button:hover),
 :deep(.fc-button:focus) {
   background-color: #357abd !important;
-  color: #fff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(74, 144, 226, 0.2);
 }
 
 :deep(.fc-button-active),
 :deep(.fc-button-primary:not(:disabled):active) {
   background-color: #357abd !important;
-  color: #fff !important;
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2);
 }
 
 :deep(.fc-today-button) {
@@ -538,71 +593,94 @@ h2 {
   font-weight: 700;
 }
 
-:deep(.fc-daygrid-day.fc-day-today),
-:deep(.fc-timegrid-col.fc-day-today) {
+:deep(.fc-daygrid-day.fc-day-today) {
   background: #e3f2fd !important;
-  border-radius: 8px;
+  border-radius: 16px;
   box-shadow: 0 0 0 2px #4a90e2 inset;
 }
 
-:deep(.fc-daygrid-day:hover),
-:deep(.fc-timegrid-col:hover) {
-  background: #f0f7ff !important;
-  transition: background 0.2s;
+:deep(.fc-daygrid-day.fc-day-today .fc-daygrid-day-number) {
+  background: #4a90e2;
+  color: white;
 }
 
-:deep(.fc-event) {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-  padding: 0 !important;
+.cell-meal-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 1.2rem;
 }
 
-:deep(.fc-daygrid-event-harness),
-:deep(.fc-event) {
-  overflow: visible !important;
-}
-:deep(.calendar-event-icons) {
-  margin-bottom: 4px;
+.cell-meal-strip.empty-meal {
+  background: #f8f9fa;
+  color: #dc3545;
+  font-size: 1.4rem;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-:deep(.meal-icons) {
-  font-size: 1.3rem;
-  letter-spacing: 2px;
-  background: none;
-  color: inherit;
-  padding: 0;
-  border-radius: 0;
-  box-shadow: none;
+.cell-meal-strip:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.15);
+}
+
+.cell-meal-strip.empty-meal:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
 }
 
 /* 반응형 */
 @media (max-width: 900px) {
   #calendar {
-    padding: 0.5rem 0.2rem 1rem 0.2rem;
-    min-height: 500px;
+    padding: 1rem;
+    min-height: 600px;
   }
+  
   :deep(.fc-toolbar-title) {
-    font-size: 1.1rem !important;
+    font-size: 1.4rem !important;
   }
+  
   :deep(.fc-daygrid-day-frame) {
-    min-height: 60px !important;
+    min-height: 80px !important;
+  }
+  
+  :deep(.fc-button) {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
   }
 }
+
 @media (max-width: 600px) {
   .calendar-view {
     padding: 0;
   }
+  
   #calendar {
-    border-radius: 8px;
-    min-height: 250px;
+    border-radius: 16px;
+    min-height: 400px;
   }
+  
   :deep(.fc-toolbar) {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.8rem;
   }
+  
   :deep(.fc-daygrid-day-frame) {
-    min-height: 36px !important;
+    min-height: 60px !important;
+  }
+  
+  :deep(.fc-daygrid-day-number) {
+    font-size: 0.9rem;
+    width: 28px;
+    height: 28px;
+  }
+  
+  .cell-meal-strip {
+    font-size: 1.1rem;
+    padding: 4px 0 2px 0;
   }
 }
 
@@ -781,34 +859,5 @@ h2 {
 .fade-modal-enter-from,
 .fade-modal-leave-to {
   opacity: 0;
-}
-
-.cell-meal-strip {
-  background: #e3f2fd;
-  border-radius: 10px;
-  padding: 4px 0 2px 0;
-  margin-bottom: 6px;
-  font-size: 1.2rem;
-  font-weight: 500;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-width: 48px;
-}
-.cell-analyze-strip {
-  width: 100%;
-  min-height: 24px;
-  margin-top: 4px;
-  background: #fffbe7;
-  border-radius: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 1.1rem;
-  font-weight: 500;
-  cursor: pointer;
-  z-index: 2;
-  overflow: visible;
-  color: #222;
 }
 </style>
